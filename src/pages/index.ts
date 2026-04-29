@@ -1,0 +1,7 @@
+export { LoginPage } from './LoginPage'
+export { DashboardPage } from './DashboardPage'
+export { TransactionsPage } from './TransactionsPage'
+export { ConfigurationsPage } from './ConfigurationsPage'
+export { VehiclesPage } from './VehiclesPage'
+export { InvestmentsPage } from './InvestmentsPage'
+export { AssetsPage } from './AssetsPage'
