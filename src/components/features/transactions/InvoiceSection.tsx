@@ -8,6 +8,9 @@ import { useInvoicesQuery, useUpsertInvoice, useDeleteInvoice, useToggleInvoiceP
 import { Button } from '@/components/ui/Button'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { formatCurrency, formatMonthLabel } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
+
+const HIDDEN_VALUE = '••••••'
 
 const TYPE_LABELS: Record<string, string> = {
   credit_card: 'Crédito',
@@ -22,6 +25,7 @@ interface CoveredItemProps {
 }
 
 function CoveredItem({ item, faturaPaid }: CoveredItemProps) {
+  const { hideValues } = useHideValuesStore()
   const isInstallment = item.transaction.total_installments > 1
   return (
     <div className={clsx(
@@ -41,7 +45,7 @@ function CoveredItem({ item, faturaPaid }: CoveredItemProps) {
         {TYPE_LABELS[item.transaction.type] ?? item.transaction.type}
       </span>
       <span className="flex-shrink-0 tabular-nums font-medium text-foreground">
-        {formatCurrency(item.amount)}
+        {hideValues ? HIDDEN_VALUE : formatCurrency(item.amount)}
       </span>
     </div>
   )
@@ -82,7 +86,7 @@ function InvoiceDialog({ open, onOpenChange, card, month, existing }: InvoiceDia
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 shadow-xl focus:outline-none">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border/50 bg-card p-6 shadow-card-lg focus:outline-none">
           <Dialog.Title className="mb-1 text-base font-semibold text-foreground">
             {existing ? 'Editar Fatura' : 'Registrar Fatura'}
           </Dialog.Title>
@@ -150,6 +154,7 @@ interface InvoiceSectionProps {
 }
 
 export function InvoiceSection({ month, cardItems }: InvoiceSectionProps) {
+  const { hideValues } = useHideValuesStore()
   const { data: cards = [] } = useCardsQuery()
   const { data: invoices = [] } = useInvoicesQuery()
   const togglePaid = useToggleInvoicePaid()
@@ -253,7 +258,7 @@ export function InvoiceSection({ month, cardItems }: InvoiceSectionProps) {
                   {/* Amount */}
                   {invoice ? (
                     <span className="text-sm font-medium tabular-nums text-foreground">
-                      {formatCurrency(invoice.amount)}
+                      {hideValues ? HIDDEN_VALUE : formatCurrency(invoice.amount)}
                     </span>
                   ) : (
                     <span className="text-sm text-muted-foreground">Não registrada</span>
@@ -302,7 +307,7 @@ export function InvoiceSection({ month, cardItems }: InvoiceSectionProps) {
             <div className="flex items-center justify-between border-t border-border px-4 py-3">
               <span className="text-sm font-medium text-foreground">Total</span>
               <span className="text-sm font-semibold tabular-nums text-foreground">
-                {formatCurrency(totalAmount)}
+                {hideValues ? HIDDEN_VALUE : formatCurrency(totalAmount)}
               </span>
             </div>
           )}

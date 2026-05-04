@@ -6,6 +6,9 @@ import { ConfirmDialog } from '@/components/features/ConfirmDialog'
 import { PersonalAssetDialog, PERSONAL_ASSET_CATEGORIES } from './PersonalAssetDialog'
 import { useRemovePersonalAsset } from '@/hooks/usePersonalAssets'
 import { formatCurrency } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
+
+const HIDDEN_VALUE = '••••••'
 
 interface Props {
   assets: PersonalAsset[]
@@ -17,6 +20,7 @@ function effectiveValue(a: PersonalAsset): number {
 }
 
 export function PersonalAssetList({ assets, isLoading }: Props) {
+  const { hideValues } = useHideValuesStore()
   const [editAsset, setEditAsset] = useState<PersonalAsset | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<PersonalAsset | null>(null)
   const remove = useRemovePersonalAsset()
@@ -53,7 +57,7 @@ export function PersonalAssetList({ assets, isLoading }: Props) {
           <div className="rounded-xl border border-border bg-card px-4 py-3 flex items-center justify-between">
             <div>
               <p className="text-xs text-muted-foreground">Valor total dos bens</p>
-              <p className="text-xl font-bold tabular-nums text-foreground">{formatCurrency(total)}</p>
+              <p className="text-xl font-bold tabular-nums text-foreground">{hideValues ? HIDDEN_VALUE : formatCurrency(total)}</p>
               <p className="text-xs text-muted-foreground">{assets.length} {assets.length === 1 ? 'bem' : 'bens'}</p>
             </div>
             {/* Stacked bar */}
@@ -75,7 +79,7 @@ export function PersonalAssetList({ assets, isLoading }: Props) {
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{cat.label}</p>
-                <span className="ml-auto text-xs tabular-nums text-muted-foreground">{formatCurrency(cat.value)}</span>
+                <span className="ml-auto text-xs tabular-nums text-muted-foreground">{hideValues ? HIDDEN_VALUE : formatCurrency(cat.value)}</span>
               </div>
 
               <div className="rounded-xl border border-border bg-card divide-y divide-border">
@@ -85,22 +89,22 @@ export function PersonalAssetList({ assets, isLoading }: Props) {
                       <p className="text-sm font-medium text-foreground truncate">{a.name}</p>
                       {a.current_value != null ? (
                         <p className="text-xs text-muted-foreground">
-                          Compra: {formatCurrency(a.purchase_value)}
+                          Compra: {hideValues ? HIDDEN_VALUE : formatCurrency(a.purchase_value)}
                           {' · '}
                           <span className={a.current_value >= a.purchase_value ? 'text-green-500' : 'text-red-400'}>
-                            Atual: {formatCurrency(a.current_value)}
+                            Atual: {hideValues ? HIDDEN_VALUE : formatCurrency(a.current_value)}
                           </span>
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground">
-                          Compra: {formatCurrency(a.purchase_value)}
+                          Compra: {hideValues ? HIDDEN_VALUE : formatCurrency(a.purchase_value)}
                         </p>
                       )}
                       {a.notes && <p className="text-xs italic text-muted-foreground">{a.notes}</p>}
                     </div>
 
                     <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-foreground">
-                      {formatCurrency(effectiveValue(a))}
+                      {hideValues ? HIDDEN_VALUE : formatCurrency(effectiveValue(a))}
                     </span>
 
                     <DropdownMenu.Root>

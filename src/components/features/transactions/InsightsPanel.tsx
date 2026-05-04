@@ -16,7 +16,10 @@ import { queryKeys } from '@/hooks/queryKeys'
 import { Button } from '@/components/ui/Button'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { formatCurrency } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
 import type { ActiveInstallmentGroup } from '@/domain'
+
+const HIDDEN_VALUE = '••••••'
 
 const SELECT_ITEM_CLASS =
   'flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-sm hover:bg-muted focus:bg-muted focus:outline-none'
@@ -129,7 +132,7 @@ function EditInstallmentDialog({ open, onOpenChange, group }: EditInstallmentDia
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 shadow-xl focus:outline-none">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border/50 bg-card p-6 shadow-card-lg focus:outline-none">
           <Dialog.Title className="mb-1 text-base font-semibold text-foreground">
             Editar Parcelamento
           </Dialog.Title>
@@ -263,6 +266,7 @@ function EditInstallmentDialog({ open, onOpenChange, group }: EditInstallmentDia
 // ── InsightsPanel ─────────────────────────────────────────────────────────────
 
 export function InsightsPanel() {
+  const { hideValues } = useHideValuesStore()
   const { data: groups = [], isLoading: loadingGroups } = useActiveInstallmentGroups()
   const { data: subscriptions = [], isLoading: loadingSubs } = useActiveSubscriptions()
 
@@ -314,7 +318,7 @@ export function InsightsPanel() {
                       </p>
                     </div>
                     <span className="flex-shrink-0 text-sm tabular-nums text-foreground">
-                      {formatCurrency(g.monthlyAmount)}/mês
+                      {hideValues ? HIDDEN_VALUE : formatCurrency(g.monthlyAmount)}/mês
                     </span>
                     <button
                       type="button"
@@ -345,7 +349,7 @@ export function InsightsPanel() {
                 <span className="text-sm font-medium text-foreground">Assinaturas</span>
                 <Badge count={subscriptions.length} />
                 <span className="text-xs text-muted-foreground truncate">
-                  · {formatCurrency(subscriptionsTotal)}/mês
+                  · {hideValues ? HIDDEN_VALUE : formatCurrency(subscriptionsTotal)}/mês
                 </span>
               </div>
               {showSubscriptions
@@ -363,7 +367,7 @@ export function InsightsPanel() {
                   >
                     <span className="min-w-0 truncate text-sm text-foreground">{s.description}</span>
                     <span className="flex-shrink-0 text-sm tabular-nums text-foreground">
-                      {formatCurrency(s.monthlyAmount)}/mês
+                      {hideValues ? HIDDEN_VALUE : formatCurrency(s.monthlyAmount)}/mês
                     </span>
                   </div>
                 ))}

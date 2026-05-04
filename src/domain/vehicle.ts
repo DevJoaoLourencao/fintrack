@@ -1,9 +1,11 @@
 export type VehicleStatus = 'active' | 'receivable' | 'sold'
+export type VehicleCategory = 'moto' | 'carro'
 
 export interface Vehicle {
   id: string
   user_id: string
   name: string
+  category: VehicleCategory
   purchase_price: number
   purchase_date: string | null
   status: VehicleStatus

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DotsHorizontalIcon, MinusIcon, TrashIcon } from '@radix-ui/react-icons'
+import { DotsHorizontalIcon, MinusIcon, TrashIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { clsx } from 'clsx'
 import type { RichVehicleSale } from '@/domain'
@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/features/ConfirmDialog'
 import { useMarkInstallmentPaid, useUnmarkInstallmentPaid, useRemoveVehicleSale } from '@/hooks/useVehicles'
 import { formatCurrency } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
+
+const HIDDEN_VALUE = '••••••'
 
 interface Props {
   sales: RichVehicleSale[]
@@ -14,22 +17,39 @@ interface Props {
 }
 
 export function VehicleReceivablesTab({ sales, isLoading }: Props) {
+  const { hideValues } = useHideValuesStore()
   const [confirmCancel, setConfirmCancel] = useState<RichVehicleSale | null>(null)
+  const [search, setSearch] = useState('')
   const markPaid = useMarkInstallmentPaid()
   const unmarkPaid = useUnmarkInstallmentPaid()
   const removeSale = useRemoveVehicleSale()
 
-  const totalRemaining = sales.reduce(
+  const filtered = search
+    ? sales.filter((s) => s.vehicle.name.toLowerCase().includes(search.toLowerCase()))
+    : sales
+
+  const totalRemaining = filtered.reduce(
     (sum, s) => sum + (s.installments_count - s.installments_paid) * s.installments_amount,
     0
   )
 
   return (
     <div className="space-y-4">
-      {sales.length > 0 && (
+      <div className="relative max-w-xs">
+        <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Buscar veículo..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
+      {filtered.length > 0 && (
         <p className="text-sm text-muted-foreground">
-          {sales.length} {sales.length === 1 ? 'venda' : 'vendas'} com parcelas pendentes ·{' '}
-          <span className="font-medium text-foreground">{formatCurrency(totalRemaining)} a receber</span>
+          {filtered.length} {filtered.length === 1 ? 'venda' : 'vendas'} com parcelas pendentes ·{' '}
+          <span className="font-medium text-foreground">{hideValues ? HIDDEN_VALUE : formatCurrency(totalRemaining)} a receber</span>
         </p>
       )}
 
@@ -41,13 +61,13 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
         </div>
       )}
 
-      {!isLoading && sales.length === 0 && (
+      {!isLoading && filtered.length === 0 && (
         <div className="py-12 text-center text-sm text-muted-foreground">
-          Nenhuma venda com parcelas pendentes.
+          {search ? 'Nenhuma venda encontrada.' : 'Nenhuma venda com parcelas pendentes.'}
         </div>
       )}
 
-      {!isLoading && sales.map((sale) => {
+      {!isLoading && filtered.map((sale) => {
         const remaining = sale.installments_count - sale.installments_paid
         const progressPct = sale.installments_count > 0
           ? (sale.installments_paid / sale.installments_count) * 100
@@ -57,13 +77,12 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
 
         return (
           <div key={sale.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
-            {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-medium text-foreground">{sale.vehicle.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  Vendido por {formatCurrency(sale.total_sale_price)}
-                  {sale.sale_date && ` · comprado por ${formatCurrency(sale.vehicle.purchase_price)}`}
+                  Vendido por {hideValues ? HIDDEN_VALUE : formatCurrency(sale.total_sale_price)}
+                  {sale.sale_date && ` · comprado por ${hideValues ? HIDDEN_VALUE : formatCurrency(sale.vehicle.purchase_price)}`}
                 </p>
               </div>
 
@@ -109,20 +128,18 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
               </DropdownMenu.Root>
             </div>
 
-            {/* Breakdown */}
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               {sale.cash_amount > 0 && (
-                <span>{formatCurrency(sale.cash_amount)} à vista</span>
+                <span>{hideValues ? HIDDEN_VALUE : formatCurrency(sale.cash_amount)} à vista</span>
               )}
               {sale.installments_count > 0 && (
-                <span>{sale.installments_count}x de {formatCurrency(sale.installments_amount)}</span>
+                <span>{sale.installments_count}x de {hideValues ? HIDDEN_VALUE : formatCurrency(sale.installments_amount)}</span>
               )}
               {sale.trade_description && (
-                <span>Troca: {sale.trade_description}{sale.trade_value > 0 && ` (${formatCurrency(sale.trade_value)})`}</span>
+                <span>Troca: {sale.trade_description}{sale.trade_value > 0 && ` (${hideValues ? HIDDEN_VALUE : formatCurrency(sale.trade_value)})`}</span>
               )}
             </div>
 
-            {/* Progress bar */}
             {sale.installments_count > 0 && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
@@ -133,7 +150,7 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
                     'font-medium tabular-nums',
                     remaining > 0 ? 'text-foreground' : 'text-green-500'
                   )}>
-                    {remaining > 0 ? `${formatCurrency(remainingValue)} restantes` : 'Quitado'}
+                    {remaining > 0 ? `${hideValues ? HIDDEN_VALUE : formatCurrency(remainingValue)} restantes` : 'Quitado'}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted">
@@ -145,7 +162,6 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
               </div>
             )}
 
-            {/* Action */}
             {remaining > 0 && (
               <Button
                 variant="ghost"

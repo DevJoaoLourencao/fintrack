@@ -49,17 +49,9 @@ Edite `.env`:
 ```env
 VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_ANON_KEY=sua-anon-key
-
-# true = login e dados mock (sem Supabase)
-VITE_MOCK_AUTH=false
-VITE_MOCK_DATA=false
 ```
 
 > Chaves disponíveis em **Supabase → Project Settings → API**.
-
-### Modo mock (sem banco)
-
-Defina `VITE_MOCK_AUTH=true` e `VITE_MOCK_DATA=true`. Dados ficam no `localStorage` — útil para rodar a UI sem configurar Supabase.
 
 ## Banco de dados
 

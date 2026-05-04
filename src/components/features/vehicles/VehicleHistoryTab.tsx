@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DotsHorizontalIcon, Pencil1Icon, TrashIcon } from '@radix-ui/react-icons'
+import { DotsHorizontalIcon, Pencil1Icon, TrashIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { clsx } from 'clsx'
 import type { RichVehicleSale } from '@/domain'
@@ -7,6 +7,9 @@ import { ConfirmDialog } from '@/components/features/ConfirmDialog'
 import { EditSaleDialog } from './EditSaleDialog'
 import { useRemoveVehicleSale } from '@/hooks/useVehicles'
 import { formatCurrency, formatDate } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
+
+const HIDDEN_VALUE = '••••••'
 
 interface Props {
   sales: RichVehicleSale[]
@@ -14,16 +17,33 @@ interface Props {
 }
 
 export function VehicleHistoryTab({ sales, isLoading }: Props) {
+  const { hideValues } = useHideValuesStore()
   const [editSale, setEditSale] = useState<RichVehicleSale | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<RichVehicleSale | null>(null)
+  const [search, setSearch] = useState('')
   const removeSale = useRemoveVehicleSale()
 
-  const totalBought = sales.reduce((sum, s) => sum + s.vehicle.purchase_price, 0)
-  const totalSold = sales.reduce((sum, s) => sum + s.total_sale_price, 0)
+  const filtered = search
+    ? sales.filter((s) => s.vehicle.name.toLowerCase().includes(search.toLowerCase()))
+    : sales
+
+  const totalBought = filtered.reduce((sum, s) => sum + s.vehicle.purchase_price, 0)
+  const totalSold = filtered.reduce((sum, s) => sum + s.total_sale_price, 0)
   const totalProfit = totalSold - totalBought
 
   return (
     <div className="space-y-4">
+      <div className="relative max-w-xs">
+        <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Buscar veículo..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
       {isLoading && (
         <div className="space-y-2">
           {[0, 1, 2].map((i) => (
@@ -32,24 +52,24 @@ export function VehicleHistoryTab({ sales, isLoading }: Props) {
         </div>
       )}
 
-      {!isLoading && sales.length > 0 && (
+      {!isLoading && filtered.length > 0 && (
         <p className="text-sm text-muted-foreground">
-          {sales.length} {sales.length === 1 ? 'venda concluída' : 'vendas concluídas'} ·{' '}
+          {filtered.length} {filtered.length === 1 ? 'venda concluída' : 'vendas concluídas'} ·{' '}
           <span className={clsx('font-medium', totalProfit >= 0 ? 'text-green-500' : 'text-red-500')}>
-            {totalProfit >= 0 ? '+' : ''}{formatCurrency(totalProfit)} de lucro
+            {hideValues ? HIDDEN_VALUE : `${totalProfit >= 0 ? '+' : ''}${formatCurrency(totalProfit)}`} de lucro
           </span>
         </p>
       )}
 
-      {!isLoading && sales.length === 0 && (
+      {!isLoading && filtered.length === 0 && (
         <div className="py-12 text-center text-sm text-muted-foreground">
-          Nenhuma venda concluída ainda.
+          {search ? 'Nenhuma venda encontrada.' : 'Nenhuma venda concluída ainda.'}
         </div>
       )}
 
-      {!isLoading && sales.length > 0 && (
+      {!isLoading && filtered.length > 0 && (
         <div className="rounded-xl border border-border bg-card divide-y divide-border">
-          {sales.map((sale) => {
+          {filtered.map((sale) => {
             const profit = sale.total_sale_price - sale.vehicle.purchase_price
             const isProfit = profit >= 0
 
@@ -58,9 +78,9 @@ export function VehicleHistoryTab({ sales, isLoading }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">{sale.vehicle.name}</p>
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                    <span>Pago {formatCurrency(sale.vehicle.purchase_price)}</span>
+                    <span>Pago {hideValues ? HIDDEN_VALUE : formatCurrency(sale.vehicle.purchase_price)}</span>
                     <span>→</span>
-                    <span>Recebido {formatCurrency(sale.total_sale_price)}</span>
+                    <span>Recebido {hideValues ? HIDDEN_VALUE : formatCurrency(sale.total_sale_price)}</span>
                     {sale.trade_description && (
                       <span>+ troca {sale.trade_description}</span>
                     )}
@@ -73,7 +93,7 @@ export function VehicleHistoryTab({ sales, isLoading }: Props) {
                   'flex-shrink-0 text-sm font-semibold tabular-nums',
                   isProfit ? 'text-green-500' : 'text-red-500'
                 )}>
-                  {isProfit ? '+' : ''}{formatCurrency(profit)}
+                  {hideValues ? HIDDEN_VALUE : `${isProfit ? '+' : ''}${formatCurrency(profit)}`}
                 </span>
 
                 <DropdownMenu.Root>
@@ -114,15 +134,14 @@ export function VehicleHistoryTab({ sales, isLoading }: Props) {
             )
           })}
 
-          {/* Totals footer */}
           <div className="grid grid-cols-3 divide-x divide-border px-4 py-3">
             <div className="pr-4">
               <p className="text-xs text-muted-foreground">Investido</p>
-              <p className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(totalBought)}</p>
+              <p className="text-sm font-semibold tabular-nums text-foreground">{hideValues ? HIDDEN_VALUE : formatCurrency(totalBought)}</p>
             </div>
             <div className="px-4">
               <p className="text-xs text-muted-foreground">Recebido</p>
-              <p className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(totalSold)}</p>
+              <p className="text-sm font-semibold tabular-nums text-foreground">{hideValues ? HIDDEN_VALUE : formatCurrency(totalSold)}</p>
             </div>
             <div className="pl-4">
               <p className="text-xs text-muted-foreground">Lucro total</p>
@@ -130,7 +149,7 @@ export function VehicleHistoryTab({ sales, isLoading }: Props) {
                 'text-sm font-semibold tabular-nums',
                 totalProfit >= 0 ? 'text-green-500' : 'text-red-500'
               )}>
-                {totalProfit >= 0 ? '+' : ''}{formatCurrency(totalProfit)}
+                {hideValues ? HIDDEN_VALUE : `${totalProfit >= 0 ? '+' : ''}${formatCurrency(totalProfit)}`}
               </p>
             </div>
           </div>

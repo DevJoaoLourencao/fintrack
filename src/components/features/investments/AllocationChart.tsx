@@ -1,6 +1,7 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import type { TooltipProps, PieLabelRenderProps } from 'recharts'
 import type { InvestmentSnapshot } from '@/domain'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
 
 const CATEGORIES = [
   { key: 'acoes'         as const, label: 'Ações',        color: '#6366f1' },
@@ -21,6 +22,7 @@ interface ChartEntry {
 }
 
 function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
+  const { hideValues } = useHideValuesStore()
   if (!active || !payload?.length) return null
   const entry = payload[0].payload as ChartEntry
 
@@ -30,7 +32,7 @@ function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
         <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
         <span className="text-xs font-semibold text-white">{entry.name}</span>
       </div>
-      <p className="text-sm font-bold tabular-nums text-white">{formatBrl(entry.value)}</p>
+      <p className="text-sm font-bold tabular-nums text-white">{hideValues ? '••••••' : formatBrl(entry.value)}</p>
       <p className="text-xs text-neutral-400">{entry.pct.toFixed(1)}% do total</p>
     </div>
   )
@@ -80,7 +82,7 @@ export function AllocationChart({ snapshot }: Props) {
   const data: ChartEntry[] = rawData.map((d) => ({ ...d, pct: (d.value / total) * 100 }))
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-2xl border border-border/50 bg-card p-4 shadow-card-md">
       <p className="mb-3 text-sm font-medium text-foreground">Alocação Atual</p>
       <ResponsiveContainer width="100%" height={240}>
         <PieChart>

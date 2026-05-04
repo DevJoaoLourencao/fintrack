@@ -5,7 +5,10 @@ import { useVehiclesQuery, useVehicleSalesQuery } from '@/hooks/useVehicles'
 import { VehicleInventoryTab } from '@/components/features/vehicles/VehicleInventoryTab'
 import { VehicleReceivablesTab } from '@/components/features/vehicles/VehicleReceivablesTab'
 import { VehicleHistoryTab } from '@/components/features/vehicles/VehicleHistoryTab'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
 import { formatCurrency } from '@/lib/dateUtils'
+
+const HIDDEN_VALUE = '••••••'
 
 function SummaryCard({
   label,
@@ -41,6 +44,7 @@ const TAB_CLASS = clsx(
 )
 
 export function VehiclesPage() {
+  const { hideValues } = useHideValuesStore()
   const { data: vehicles = [], isLoading: loadingVehicles } = useVehiclesQuery()
   const { data: sales = [], isLoading: loadingSales } = useVehicleSalesQuery()
 
@@ -64,17 +68,17 @@ export function VehiclesPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <SummaryCard
           label="Em estoque"
-          value={formatCurrency(totalInvested)}
+          value={hideValues ? HIDDEN_VALUE : formatCurrency(totalInvested)}
           sub={`${activeVehicles.length} ${activeVehicles.length === 1 ? 'veículo' : 'veículos'}`}
         />
         <SummaryCard
           label="A receber"
-          value={formatCurrency(totalReceivable)}
+          value={hideValues ? HIDDEN_VALUE : formatCurrency(totalReceivable)}
           sub={`${receivableSales.length} ${receivableSales.length === 1 ? 'venda' : 'vendas'} pendentes`}
         />
         <SummaryCard
           label="Lucro realizado"
-          value={(totalProfit >= 0 ? '+' : '') + formatCurrency(totalProfit)}
+          value={hideValues ? HIDDEN_VALUE : (totalProfit >= 0 ? '+' : '') + formatCurrency(totalProfit)}
           sub={`${completedSales.length} vendas concluídas`}
           highlight={completedSales.length > 0 ? (totalProfit >= 0 ? 'green' : 'red') : 'none'}
         />

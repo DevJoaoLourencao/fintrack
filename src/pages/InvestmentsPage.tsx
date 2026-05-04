@@ -9,10 +9,9 @@ import {
   useInvestmentAssetsQuery,
   useInvestmentSnapshotsQuery,
 } from "@/hooks/useInvestments";
+import { useHideValuesStore } from "@/stores/hideValuesStore";
 import { formatCurrency } from "@/lib/dateUtils";
 import {
-  EyeClosedIcon,
-  EyeOpenIcon,
   PlusIcon,
   UpdateIcon,
 } from "@radix-ui/react-icons";
@@ -71,8 +70,8 @@ function SummaryCard({
 
 export function InvestmentsPage() {
   const [addOpen, setAddOpen] = useState(false);
-  const [hideValues, setHideValues] = useState(true);
   const [rateRefreshing, setRateRefreshing] = useState(false);
+  const { hideValues } = useHideValuesStore();
   const { data: snapshots = [], isLoading: snapshotsLoading } =
     useInvestmentSnapshotsQuery();
   const { data: assets = [], isLoading: assetsLoading } =
@@ -128,50 +127,29 @@ export function InvestmentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Top bar: exchange rate + toggle hide values */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
-          <span className="text-base">🇺🇸</span>
-          <span>Dólar comercial:</span>
-          {rateFetching ? (
-            <span className="h-4 w-16 animate-pulse rounded bg-muted inline-block" />
-          ) : rateError ? (
-            <span className="text-red-500">Erro ao buscar cotação</span>
-          ) : usdRate ? (
-            <span className="font-semibold text-foreground tabular-nums">
-              {formatCurrency(usdRate)}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleRefetchRate}
-            disabled={rateFetching}
-            className="ml-1 rounded p-0.5 hover:bg-muted transition-colors disabled:opacity-50"
-            aria-label="Atualizar cotação"
-          >
-            <UpdateIcon
-              className={clsx("h-3.5 w-3.5", rateFetching && "animate-spin")}
-            />
-          </button>
-        </div>
-
+      {/* Top bar: exchange rate */}
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground w-fit">
+        <span className="text-base">🇺🇸</span>
+        <span>Dólar comercial:</span>
+        {rateFetching ? (
+          <span className="h-4 w-16 animate-pulse rounded bg-muted inline-block" />
+        ) : rateError ? (
+          <span className="text-red-500">Erro ao buscar cotação</span>
+        ) : usdRate ? (
+          <span className="font-semibold text-foreground tabular-nums">
+            {formatCurrency(usdRate)}
+          </span>
+        ) : null}
         <button
           type="button"
-          onClick={() => setHideValues((v) => !v)}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          aria-label={hideValues ? "Exibir valores" : "Ocultar valores"}
+          onClick={handleRefetchRate}
+          disabled={rateFetching}
+          className="ml-1 rounded p-0.5 hover:bg-muted transition-colors disabled:opacity-50"
+          aria-label="Atualizar cotação"
         >
-          {hideValues ? (
-            <>
-              <EyeOpenIcon className="h-3.5 w-3.5" />
-              Exibir valores
-            </>
-          ) : (
-            <>
-              <EyeClosedIcon className="h-3.5 w-3.5" />
-              Ocultar valores
-            </>
-          )}
+          <UpdateIcon
+            className={clsx("h-3.5 w-3.5", rateFetching && "animate-spin")}
+          />
         </button>
       </div>
 
@@ -196,7 +174,11 @@ export function InvestmentsPage() {
       </div>
 
       {/* Allocation chart — from asset totals */}
-      {!isLoading && total > 0 && <AllocationChart snapshot={assetSnapshot} />}
+      {!isLoading && total > 0 && (
+        <AllocationChart
+          snapshot={{ ...assetSnapshot, usd_rate: usdRate ?? 0 }}
+        />
+      )}
 
       {/* Asset list */}
       <AssetList

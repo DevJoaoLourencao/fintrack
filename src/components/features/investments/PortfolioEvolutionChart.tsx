@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import type { InvestmentSnapshot } from '@/domain'
 import { formatMonthLabel } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
 
 const CATEGORIES = [
   { key: 'acoes'         as const, label: 'Ações',        color: '#6366f1' },
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function PortfolioEvolutionChart({ snapshots }: Props) {
+  const { hideValues } = useHideValuesStore()
   const data = useMemo(() => (
     [...snapshots]
       .sort((a, b) => a.date.localeCompare(b.date))
@@ -48,21 +50,24 @@ export function PortfolioEvolutionChart({ snapshots }: Props) {
       <p className="mb-4 text-sm font-medium text-foreground">Evolução do Portfólio</p>
       <ResponsiveContainer width="100%" height={260}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
-          <YAxis tickFormatter={formatBRL} tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" width={60} />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--muted-foreground))" />
+          <YAxis tickFormatter={(v) => hideValues ? 'R$ ••••' : formatBRL(v)} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--muted-foreground))" width={60} />
           <Tooltip
             formatter={(value: number) =>
-              new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+              hideValues ? '••••••' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
             }
             contentStyle={{
-              backgroundColor: 'var(--card)',
-              border: '1px solid var(--border)',
+              backgroundColor: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
               borderRadius: '8px',
               fontSize: 12,
+              color: 'hsl(var(--foreground))',
             }}
+            labelStyle={{ color: 'hsl(var(--foreground))' }}
+            itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
           />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Legend wrapperStyle={{ fontSize: 12, color: 'hsl(var(--foreground))' }} />
           <Line dataKey="total" name="Total" stroke="#94a3b8" strokeWidth={2} dot={false} strokeDasharray="4 2" />
           {CATEGORIES.map((c) => (
             <Line

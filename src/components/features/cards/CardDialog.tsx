@@ -51,7 +51,7 @@ export function CardDialog({ open, onOpenChange, card }: CardDialogProps) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md rounded-lg bg-card border border-border p-6 shadow-xl focus:outline-none">
+        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-card border border-border p-6 shadow-xl focus:outline-none">
           <Dialog.Title className="text-lg font-semibold text-foreground mb-4">
             {isEdit ? 'Editar Cartão' : 'Novo Cartão'}
           </Dialog.Title>

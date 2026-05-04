@@ -1,3 +1,5 @@
 export { useAuthStore } from './authStore'
 export { useThemeStore } from './themeStore'
 export { useFiltersStore } from './filtersStore'
+export { useNavStore } from './navStore'
+export { useHideValuesStore } from './hideValuesStore'

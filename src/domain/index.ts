@@ -1,6 +1,6 @@
 export type { User } from './user'
 export type { InvestmentSnapshot, InvestmentSnapshotCreate, InvestmentAsset, InvestmentAssetCreate, AssetCategory, AssetCurrency } from './investment'
-export type { Vehicle, VehicleCreate, VehicleStatus, VehicleSale, VehicleSaleCreate, RichVehicleSale } from './vehicle'
+export type { Vehicle, VehicleCreate, VehicleStatus, VehicleCategory, VehicleSale, VehicleSaleCreate, RichVehicleSale } from './vehicle'
 export type { Card, CardCreate } from './card'
 export type { Category, CategoryCreate } from './category'
 export type { Transaction, TransactionCreate, TransactionType, ActiveSubscription } from './transaction'

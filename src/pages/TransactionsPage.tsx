@@ -8,9 +8,13 @@ import { InsightsPanel } from '@/components/features/transactions/InsightsPanel'
 import { InstallmentRow } from '@/components/features/transactions/InstallmentRow'
 import { useInstallmentsByMonth } from '@/hooks/useInstallments'
 import { useFiltersStore } from '@/stores/filtersStore'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
 import { formatCurrency } from '@/lib/dateUtils'
 
+const HIDDEN_VALUE = '••••••'
+
 export function TransactionsPage() {
+  const { hideValues } = useHideValuesStore()
   const [dialogOpen, setDialogOpen] = useState(false)
   const { selectedMonth } = useFiltersStore()
   const { data: installments = [], isLoading } = useInstallmentsByMonth(selectedMonth)
@@ -80,7 +84,7 @@ export function TransactionsPage() {
           <div className="flex items-center justify-between px-1 pt-1">
             <span className="text-sm text-muted-foreground">Total</span>
             <span className="text-sm font-semibold tabular-nums text-foreground">
-              {formatCurrency(standaloneTotal)}
+              {hideValues ? HIDDEN_VALUE : formatCurrency(standaloneTotal)}
             </span>
           </div>
         </div>

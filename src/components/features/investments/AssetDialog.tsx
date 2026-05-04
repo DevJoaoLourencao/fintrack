@@ -98,7 +98,7 @@ export function AssetDialog({ open, onOpenChange, asset, defaultCategory }: Prop
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-xl focus:outline-none">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border/50 bg-card p-6 shadow-card-lg focus:outline-none">
           <Dialog.Title className="mb-4 text-base font-semibold text-foreground">
             {isEditing ? 'Editar Ativo' : 'Adicionar Ativo'}
           </Dialog.Title>

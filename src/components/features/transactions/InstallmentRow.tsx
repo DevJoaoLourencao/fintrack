@@ -19,6 +19,9 @@ import { ConfirmDialog } from '../ConfirmDialog'
 import { Button } from '@/components/ui/Button'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { formatCurrency } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
+
+const HIDDEN_VALUE = '••••••'
 
 const TYPE_LABELS: Record<string, string> = {
   credit_card: 'Crédito',
@@ -83,7 +86,7 @@ function EditDialog({ open, onOpenChange, item }: EditDialogProps) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 shadow-xl focus:outline-none">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border/50 bg-card p-6 shadow-card-lg focus:outline-none">
           <Dialog.Title className="mb-4 text-base font-semibold text-foreground">
             Editar Lançamento
           </Dialog.Title>
@@ -163,6 +166,7 @@ interface InstallmentRowProps {
 }
 
 export function InstallmentRow({ item, showProgress }: InstallmentRowProps) {
+  const { hideValues } = useHideValuesStore()
   const toggle = useTogglePaid()
   const deleteTransaction = useDeleteTransaction()
   const isCredit = item.transaction.type === 'credit_card'
@@ -217,7 +221,7 @@ export function InstallmentRow({ item, showProgress }: InstallmentRowProps) {
         {/* Amount + type */}
         <div className="flex-shrink-0 text-right">
           <p className={clsx('text-sm font-semibold', item.paid ? 'text-muted-foreground' : 'text-foreground')}>
-            {formatCurrency(item.amount)}
+            {hideValues ? HIDDEN_VALUE : formatCurrency(item.amount)}
           </p>
           <span className="text-xs text-muted-foreground">
             {TYPE_LABELS[item.transaction.type]}

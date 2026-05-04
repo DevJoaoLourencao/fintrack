@@ -1,0 +1,2 @@
+- na barra lateral, altere para que seja possivel minimizar, mesmo que na resolucao maior
+- no mobile, ajuste os items da lista de veiculos na pagina de loja de veiculos para que o botao dos 3 pontos fique no topo a direita do item e o botao de vender abaixo no canto inferior direito

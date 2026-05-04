@@ -11,6 +11,7 @@ import { useAddVehicle, useUpdateVehicle } from '@/hooks/useVehicles'
 
 const schema = z.object({
   name: z.string().min(1, 'Descrição obrigatória'),
+  category: z.enum(['moto', 'carro']),
   purchase_price: z.number({ error: 'Informe o valor' }).positive('Valor deve ser maior que zero'),
   purchase_date: z.string().optional(),
   notes: z.string().optional(),
@@ -40,13 +41,14 @@ export function VehicleDialog({ open, onOpenChange, vehicle }: Props) {
 
   const { register, control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', purchase_price: 0, purchase_date: '', notes: '' },
+    defaultValues: { name: '', category: 'moto', purchase_price: 0, purchase_date: '', notes: '' },
   })
 
   useEffect(() => {
     if (open) {
       reset({
         name: vehicle?.name ?? '',
+        category: vehicle?.category ?? 'moto',
         purchase_price: vehicle?.purchase_price ?? 0,
         purchase_date: vehicle?.purchase_date ?? new Date().toISOString().slice(0, 10),
         notes: vehicle?.notes ?? '',
@@ -57,6 +59,7 @@ export function VehicleDialog({ open, onOpenChange, vehicle }: Props) {
   function onSubmit(data: FormValues) {
     const payload = {
       name: data.name,
+      category: data.category,
       purchase_price: data.purchase_price,
       purchase_date: data.purchase_date || null,
       notes: data.notes || null,
@@ -79,12 +82,39 @@ export function VehicleDialog({ open, onOpenChange, vehicle }: Props) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 shadow-xl focus:outline-none">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-full max-w-sm -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border/50 bg-card p-6 shadow-card-lg focus:outline-none">
           <Dialog.Title className="mb-4 text-base font-semibold text-foreground">
             {isEditing ? 'Editar Veículo' : 'Adicionar ao Estoque'}
           </Dialog.Title>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground">Tipo de veículo</label>
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <div className="mt-1 flex gap-2">
+                    {(['moto', 'carro'] as const).map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => field.onChange(cat)}
+                        className={clsx(
+                          'flex-1 rounded-md border py-2 text-sm font-medium transition-colors',
+                          field.value === cat
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        {cat === 'moto' ? 'Moto' : 'Carro'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              />
+            </div>
+
             <div>
               <label className="text-sm text-muted-foreground">Descrição</label>
               <input

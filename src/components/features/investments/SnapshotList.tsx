@@ -6,6 +6,9 @@ import { ConfirmDialog } from '@/components/features/ConfirmDialog'
 import { InvestmentDialog } from './InvestmentDialog'
 import { useRemoveSnapshot } from '@/hooks/useInvestments'
 import { formatDate, formatCurrency } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
+
+const HIDDEN_VALUE = '••••••'
 
 const CATEGORIES = [
   { key: 'acoes'         as const, label: 'Ações',        color: '#6366f1' },
@@ -21,6 +24,7 @@ interface Props {
 }
 
 export function SnapshotList({ snapshots, isLoading }: Props) {
+  const { hideValues } = useHideValuesStore()
   const [editSnapshot, setEditSnapshot] = useState<InvestmentSnapshot | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<InvestmentSnapshot | null>(null)
   const remove = useRemoveSnapshot()
@@ -70,7 +74,7 @@ export function SnapshotList({ snapshots, isLoading }: Props) {
 
                   <div className="flex flex-shrink-0 items-center gap-2">
                     <span className="text-base font-bold tabular-nums text-foreground">
-                      {formatCurrency(total)}
+                      {hideValues ? HIDDEN_VALUE : formatCurrency(total)}
                     </span>
                     <DropdownMenu.Root>
                       <DropdownMenu.Trigger asChild>

@@ -1,13 +1,17 @@
 import { clsx } from 'clsx'
 import { useUpcomingInstallments } from '@/hooks/useInstallments'
 import { formatDate, formatCurrency } from '@/lib/dateUtils'
+import { useHideValuesStore } from '@/stores/hideValuesStore'
+
+const HIDDEN_VALUE = '••••••'
 
 export function UpcomingBills() {
+  const { hideValues } = useHideValuesStore()
   const today = new Date().toISOString().slice(0, 10)
   const { data: items = [], isLoading } = useUpcomingInstallments(5)
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-2xl border border-border/50 bg-card p-4 shadow-card-md">
       <p className="text-sm font-medium text-foreground mb-3">Próximas contas</p>
 
       {isLoading && (
@@ -45,7 +49,7 @@ export function UpcomingBills() {
                   <p className="text-sm text-foreground truncate">{item.transaction.description}</p>
                 </div>
                 <span className="text-sm font-semibold text-foreground flex-shrink-0 ml-3">
-                  {formatCurrency(item.amount)}
+                  {hideValues ? HIDDEN_VALUE : formatCurrency(item.amount)}
                 </span>
               </li>
             )

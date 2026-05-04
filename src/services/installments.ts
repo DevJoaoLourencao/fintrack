@@ -1,48 +1,10 @@
 import type { ActiveInstallmentGroup, Card, Category, Installment, RichInstallment, Transaction } from '@/domain'
 import { supabase } from '@/lib/supabase'
-import { addMonths, monthOf } from '@/lib/dateUtils'
+import { addMonths } from '@/lib/dateUtils'
 import { dueDate } from '@/lib/installmentUtils'
-import { createMockStorage } from './mock/storage'
-
-const MOCK_ENABLED = import.meta.env.VITE_MOCK_DATA === 'true'
-
-const storage = createMockStorage<Installment>('fintrack-installments')
-const txStorage = createMockStorage<Transaction>('fintrack-transactions')
-const catStorage = createMockStorage<Category>('fintrack-categories')
-const cardStorage = createMockStorage<Card>('fintrack-cards')
-
-if (MOCK_ENABLED) {
-  storage.seed([
-    { id: 'mock-inst-1', transaction_id: 'mock-tx-1', number: 1, amount: 100, due_date: '2026-04-10', paid: true },
-    { id: 'mock-inst-2', transaction_id: 'mock-tx-1', number: 2, amount: 100, due_date: '2026-05-10', paid: false },
-    { id: 'mock-inst-3', transaction_id: 'mock-tx-1', number: 3, amount: 100, due_date: '2026-06-10', paid: false },
-    { id: 'mock-inst-4', transaction_id: 'mock-tx-2', number: 1, amount: 45,  due_date: '2026-04-10', paid: false },
-  ])
-}
-
-function buildRich(installment: Installment): RichInstallment {
-  const transaction = txStorage.list().find((t) => t.id === installment.transaction_id)!
-  const category = catStorage.list().find((c) => c.id === transaction.category_id)!
-  const card = transaction.card_id ? cardStorage.list().find((c) => c.id === transaction.card_id) : undefined
-  return { ...installment, transaction, category, card }
-}
 
 export const installmentService = {
   async listByMonth(userId: string, month: string): Promise<RichInstallment[]> {
-    if (MOCK_ENABLED) {
-      const transactions = txStorage.list()
-      return Promise.resolve(
-        storage
-          .list()
-          .filter((i) => {
-            const tx = transactions.find((t) => t.id === i.transaction_id)
-            return tx?.user_id === userId && monthOf(i.due_date) === month
-          })
-          .map(buildRich)
-          .sort((a, b) => a.due_date.localeCompare(b.due_date) || a.number - b.number)
-      )
-    }
-
     const firstDay = `${month}-01`
     const [y, m] = month.split('-').map(Number)
     const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
@@ -81,25 +43,12 @@ export const installmentService = {
   },
 
   async createBatch(items: Omit<Installment, 'id'>[]): Promise<Installment[]> {
-    if (MOCK_ENABLED) {
-      return Promise.resolve(items.map((item) => storage.create(item)))
-    }
     const { data, error } = await supabase.from('installments').insert(items).select()
     if (error) throw error
     return data as Installment[]
   },
 
-  // Upsert-safe variant for recurring extension — ignores already-existing numbers
   async createBatchSafe(items: Omit<Installment, 'id'>[]): Promise<void> {
-    if (MOCK_ENABLED) {
-      items.forEach((item) => {
-        const exists = storage.list().some(
-          (i) => i.transaction_id === item.transaction_id && i.number === item.number
-        )
-        if (!exists) storage.create(item)
-      })
-      return
-    }
     const { error } = await supabase
       .from('installments')
       .upsert(items, { onConflict: 'transaction_id,number', ignoreDuplicates: true })
@@ -107,11 +56,6 @@ export const installmentService = {
   },
 
   async getLastByTransaction(transactionId: string): Promise<Installment | null> {
-    if (MOCK_ENABLED) {
-      const all = storage.list().filter((i) => i.transaction_id === transactionId)
-      if (all.length === 0) return Promise.resolve(null)
-      return Promise.resolve(all.reduce((prev, curr) => (curr.number > prev.number ? curr : prev)))
-    }
     const { data, error } = await supabase
       .from('installments')
       .select('*')
@@ -124,9 +68,6 @@ export const installmentService = {
   },
 
   async updateAmount(id: string, amount: number): Promise<Installment> {
-    if (MOCK_ENABLED) {
-      return Promise.resolve(storage.update(id, { amount }))
-    }
     const { data, error } = await supabase
       .from('installments')
       .update({ amount })
@@ -140,19 +81,10 @@ export const installmentService = {
   async updateDueDates(transactionId: string, purchaseDate: string, card?: { due_day: number }): Promise<void> {
     const calcDue = (number: number) => {
       const idx = number - 1
-      if (card) {
-        return dueDate(purchaseDate, card.due_day, idx)
-      }
+      if (card) return dueDate(purchaseDate, card.due_day, idx)
       const [y, m, d] = purchaseDate.split('-').map(Number)
       const target = addMonths(new Date(y, m - 1, d), idx)
       return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`
-    }
-
-    if (MOCK_ENABLED) {
-      storage.list()
-        .filter((i) => i.transaction_id === transactionId && !i.paid)
-        .forEach((i) => storage.update(i.id, { due_date: calcDue(i.number) }))
-      return
     }
 
     const { data: rows, error: fetchErr } = await supabase
@@ -170,13 +102,6 @@ export const installmentService = {
   },
 
   async deleteUnpaidAfter(transactionId: string, keepCount: number): Promise<void> {
-    if (MOCK_ENABLED) {
-      const toDelete = storage.list().filter(
-        (i) => i.transaction_id === transactionId && i.number > keepCount && !i.paid
-      )
-      toDelete.forEach((i) => storage.remove(i.id))
-      return
-    }
     const { error } = await supabase
       .from('installments')
       .delete()
@@ -187,12 +112,6 @@ export const installmentService = {
   },
 
   async updateAllUnpaid(transactionId: string, amount: number): Promise<void> {
-    if (MOCK_ENABLED) {
-      storage.list()
-        .filter((i) => i.transaction_id === transactionId && !i.paid)
-        .forEach((i) => storage.update(i.id, { amount }))
-      return
-    }
     const { error } = await supabase
       .from('installments')
       .update({ amount })
@@ -202,9 +121,6 @@ export const installmentService = {
   },
 
   async togglePaid(id: string, paid: boolean): Promise<Installment> {
-    if (MOCK_ENABLED) {
-      return Promise.resolve(storage.update(id, { paid }))
-    }
     const { data, error } = await supabase
       .from('installments')
       .update({ paid })
@@ -217,21 +133,6 @@ export const installmentService = {
 
   async listUpcoming(userId: string, limit: number): Promise<RichInstallment[]> {
     const today = new Date().toISOString().slice(0, 10)
-
-    if (MOCK_ENABLED) {
-      const transactions = txStorage.list()
-      return Promise.resolve(
-        storage
-          .list()
-          .filter((i) => {
-            const tx = transactions.find((t) => t.id === i.transaction_id)
-            return tx?.user_id === userId && !i.paid && i.due_date >= today
-          })
-          .sort((a, b) => a.due_date.localeCompare(b.due_date))
-          .slice(0, limit)
-          .map(buildRich)
-      )
-    }
 
     const { data, error } = await supabase
       .from('installments')
@@ -260,29 +161,6 @@ export const installmentService = {
 
   async listActiveInstallmentGroups(userId: string, fromDate?: string): Promise<ActiveInstallmentGroup[]> {
     const cutoff = fromDate ?? new Date().toISOString().slice(0, 10)
-
-    if (MOCK_ENABLED) {
-      const transactions = txStorage
-        .list()
-        .filter((t) => t.user_id === userId && t.type === 'credit_card' && t.total_installments > 1)
-      return Promise.resolve(
-        transactions.flatMap((t) => {
-          const allInst = storage.list().filter((i) => i.transaction_id === t.id)
-          const remaining = allInst.filter((i) => !i.paid && i.due_date >= cutoff)
-          if (remaining.length === 0) return []
-          return [{
-            transactionId: t.id,
-            description: t.description,
-            category_id: t.category_id,
-            card_id: t.card_id,
-            purchase_date: t.purchase_date,
-            monthlyAmount: t.total_amount / t.total_installments,
-            totalInstallments: t.total_installments,
-            remaining: remaining.length,
-          }]
-        })
-      )
-    }
 
     const { data, error } = await supabase
       .from('installments')
@@ -324,19 +202,6 @@ export const installmentService = {
     const firstDay = `${fromMonth}-01`
     const [y, m] = toMonth.split('-').map(Number)
     const endExclusive = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
-
-    if (MOCK_ENABLED) {
-      const transactions = txStorage.list()
-      return Promise.resolve(
-        storage
-          .list()
-          .filter((i) => {
-            const tx = transactions.find((t) => t.id === i.transaction_id)
-            return tx?.user_id === userId && i.due_date >= firstDay && i.due_date < endExclusive
-          })
-          .map(buildRich)
-      )
-    }
 
     const { data, error } = await supabase
       .from('installments')
