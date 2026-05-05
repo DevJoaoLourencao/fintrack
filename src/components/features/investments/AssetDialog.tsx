@@ -12,11 +12,12 @@ import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { useAddAsset, useUpdateAsset } from '@/hooks/useInvestments'
 
 const CATEGORIES: { key: AssetCategory; label: string; color: string }[] = [
-  { key: 'acoes',         label: 'Ações',        color: '#6366f1' },
-  { key: 'fiis',          label: 'FIIs',          color: '#f59e0b' },
-  { key: 'cripto',        label: 'Cripto',        color: '#f97316' },
-  { key: 'internacional', label: 'Internacional', color: '#8b5cf6' },
-  { key: 'renda_fixa',    label: 'Renda Fixa',   color: '#10b981' },
+  { key: 'acoes',                label: 'Ações',                    color: '#6366f1' },
+  { key: 'fiis',                 label: 'FIIs',                     color: '#f59e0b' },
+  { key: 'cripto',               label: 'Cripto',                   color: '#f97316' },
+  { key: 'internacional',        label: 'Internacional',            color: '#8b5cf6' },
+  { key: 'renda_fixa',           label: 'Renda Fixa',              color: '#10b981' },
+  { key: 'reserva_oportunidade', label: 'Reserva de Oportunidade', color: '#06b6d4' },
 ]
 
 const CURRENCIES = [
@@ -26,10 +27,12 @@ const CURRENCIES = [
 
 const schema = z.object({
   name:     z.string().min(1, 'Nome obrigatório'),
-  category: z.enum(['acoes', 'fiis', 'cripto', 'internacional', 'renda_fixa'] as const),
+  category: z.enum(['acoes', 'fiis', 'cripto', 'internacional', 'renda_fixa', 'reserva_oportunidade'] as const),
   amount:   z.number().min(0.01, 'Valor obrigatório'),
   currency: z.enum(['BRL', 'USD'] as const),
-  notes:    z.string().optional(),
+  quantity:  z.number().positive().nullable().optional(),
+  avg_price: z.number().positive().nullable().optional(),
+  notes:     z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -54,38 +57,47 @@ export function AssetDialog({ open, onOpenChange, asset, defaultCategory }: Prop
   const update = useUpdateAsset()
   const isPending = add.isPending || update.isPending
 
-  const { register, control, handleSubmit, reset } = useForm<FormValues>({
+  const { register, control, handleSubmit, reset, watch } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name:     '',
-      category: defaultCategory ?? 'acoes',
-      amount:   0,
-      currency: 'BRL',
-      notes:    '',
+      name:      '',
+      category:  defaultCategory ?? 'acoes',
+      amount:    0,
+      currency:  'BRL',
+      quantity:  null,
+      avg_price: null,
+      notes:     '',
     },
   })
+
+  const selectedCategory = watch('category')
+  const showAvgPrice = ['acoes', 'fiis', 'internacional'].includes(selectedCategory)
 
   const selectedCurrency = useWatch({ control, name: 'currency' })
 
   useEffect(() => {
     if (open) {
       reset({
-        name:     asset?.name ?? '',
-        category: asset?.category ?? defaultCategory ?? 'acoes',
-        amount:   asset?.amount ?? 0,
-        currency: asset?.currency ?? 'BRL',
-        notes:    asset?.notes ?? '',
+        name:      asset?.name ?? '',
+        category:  asset?.category ?? defaultCategory ?? 'acoes',
+        amount:    asset?.amount ?? 0,
+        currency:  asset?.currency ?? 'BRL',
+        quantity:  asset?.quantity ?? null,
+        avg_price: asset?.avg_price ?? null,
+        notes:     asset?.notes ?? '',
       })
     }
   }, [open, reset, asset, defaultCategory])
 
   function onSubmit(data: FormValues) {
     const payload = {
-      name:     data.name,
-      category: data.category,
-      amount:   data.amount,
-      currency: data.currency,
-      notes:    data.notes || null,
+      name:      data.name,
+      category:  data.category,
+      amount:    data.amount,
+      currency:  data.currency,
+      quantity:  data.quantity ?? null,
+      avg_price: data.avg_price ?? null,
+      notes:     data.notes || null,
     }
     if (isEditing) {
       update.mutate({ id: asset.id, data: payload }, { onSuccess: () => onOpenChange(false) })
@@ -112,6 +124,42 @@ export function AssetDialog({ open, onOpenChange, asset, defaultCategory }: Prop
                 {...register('name')}
               />
             </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">
+                Quantidade <span className="text-xs">(opcional — cotas, ações, unidades)</span>
+              </label>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                className={inputClass()}
+                placeholder="Ex: 10"
+                {...register('quantity', {
+                  setValueAs: (v) => (v === '' || v === null ? null : Number(v)),
+                })}
+              />
+            </div>
+
+            {showAvgPrice && (
+              <Controller
+                name="avg_price"
+                control={control}
+                render={({ field }) => (
+                  <div>
+                    <label className="text-sm text-muted-foreground">
+                      Preço médio <span className="text-xs">(opcional — por cota/ação)</span>
+                    </label>
+                    <CurrencyInput
+                      value={field.value ?? 0}
+                      onChange={(v) => field.onChange(v === 0 ? null : v)}
+                      currency={selectedCurrency}
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              />
+            )}
 
             <div>
               <label className="text-sm text-muted-foreground">Categoria</label>

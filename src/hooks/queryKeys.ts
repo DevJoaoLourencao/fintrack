@@ -14,5 +14,6 @@ export const queryKeys = {
   vehicleSales: (userId: string) => ['vehicle_sales', userId] as const,
   investmentSnapshots: (userId: string) => ['investment_snapshots', userId] as const,
   investmentAssets: (userId: string) => ['investment_assets', userId] as const,
+  investmentSnapshotItems: (userId: string) => ['investment_snapshot_items', userId] as const,
   personalAssets: (userId: string) => ['personal_assets', userId] as const,
 }

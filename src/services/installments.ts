@@ -198,6 +198,38 @@ export const installmentService = {
     return Array.from(groupMap.values())
   },
 
+  async deleteOne(id: string): Promise<void> {
+    const { error } = await supabase.from('installments').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  async deleteFromDateOnward(transactionId: string, fromDueDate: string): Promise<void> {
+    const { error } = await supabase
+      .from('installments')
+      .delete()
+      .eq('transaction_id', transactionId)
+      .gte('due_date', fromDueDate)
+    if (error) throw error
+
+    const { data: remaining, error: checkErr } = await supabase
+      .from('installments')
+      .select('id')
+      .eq('transaction_id', transactionId)
+      .limit(1)
+    if (checkErr) throw checkErr
+
+    if (!remaining || remaining.length === 0) {
+      const { error: delErr } = await supabase.from('transactions').delete().eq('id', transactionId)
+      if (delErr) throw delErr
+    }
+  },
+
+  async setPaidBulk(ids: string[], paid: boolean): Promise<void> {
+    if (ids.length === 0) return
+    const { error } = await supabase.from('installments').update({ paid }).in('id', ids)
+    if (error) throw error
+  },
+
   async listByDateRange(userId: string, fromMonth: string, toMonth: string): Promise<RichInstallment[]> {
     const firstDay = `${fromMonth}-01`
     const [y, m] = toMonth.split('-').map(Number)

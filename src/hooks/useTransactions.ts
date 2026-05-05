@@ -3,7 +3,7 @@ import type { Card, TransactionCreate } from '@/domain'
 import { transactionService } from '@/services/transactions'
 import { installmentService } from '@/services/installments'
 import { generateInstallments } from '@/lib/installmentUtils'
-import { addMonths } from '@/lib/dateUtils'
+import { addMonths, parseMonth } from '@/lib/dateUtils'
 import { useAuthStore } from '@/stores/authStore'
 import { useFiltersStore } from '@/stores/filtersStore'
 import { useToast } from '@/components/ui/Toast'
@@ -86,9 +86,9 @@ export function useAddTransaction() {
 
       const currentInstallment = formData.current_installment ?? 1
       const effectivePurchaseDate =
-        formData.type === 'credit_card' && currentInstallment > 1
+        formData.type === 'credit_card' && totalInstallments > 1
           ? (() => {
-              const d = addMonths(new Date(`${selectedMonth}-01`), -currentInstallment)
+              const d = addMonths(parseMonth(selectedMonth), -currentInstallment)
               return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
             })()
           : formData.purchase_date

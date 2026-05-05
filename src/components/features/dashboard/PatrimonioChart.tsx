@@ -2,19 +2,22 @@ import { useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { useInvestmentAssetsQuery } from '@/hooks/useInvestments'
 import { useExchangeRate } from '@/hooks/useExchangeRate'
+import { useBrapiQuotes, useBrapiCryptoQuotes } from '@/hooks/useBrapiQuotes'
 import { useVehiclesQuery } from '@/hooks/useVehicles'
 import { usePersonalAssetsQuery } from '@/hooks/usePersonalAssets'
+import type { InvestmentAsset, AssetCategory } from '@/domain'
 import { formatCurrency } from '@/lib/dateUtils'
 import { useNavStore } from '@/stores/navStore'
 
 const SLICES = [
-  { key: 'acoes',          label: 'Ações',           color: '#6366f1' },
-  { key: 'fiis',           label: 'FIIs',             color: '#f59e0b' },
-  { key: 'cripto',         label: 'Cripto',           color: '#f97316' },
-  { key: 'internacional',  label: 'Internacional',    color: '#8b5cf6' },
-  { key: 'renda_fixa',     label: 'Renda Fixa',      color: '#10b981' },
-  { key: 'veiculos',       label: 'Veículos',         color: '#3b82f6' },
-  { key: 'bens',           label: 'Bens Pessoais',    color: '#ec4899' },
+  { key: 'acoes',                label: 'Ações',                    color: '#6366f1' },
+  { key: 'fiis',                 label: 'FIIs',                     color: '#f59e0b' },
+  { key: 'cripto',               label: 'Cripto',                   color: '#f97316' },
+  { key: 'internacional',        label: 'Internacional',            color: '#8b5cf6' },
+  { key: 'renda_fixa',           label: 'Renda Fixa',              color: '#10b981' },
+  { key: 'reserva_oportunidade', label: 'Reserva de Oportunidade', color: '#06b6d4' },
+  { key: 'veiculos',             label: 'Veículos',                 color: '#3b82f6' },
+  { key: 'bens',                 label: 'Bens Pessoais',            color: '#ec4899' },
 ]
 
 const HIDDEN = '••••••'
@@ -41,6 +44,29 @@ function CustomTooltip({ active, payload, hideValues }: TooltipProps) {
   )
 }
 
+const BRAPI_STOCK_CATS: AssetCategory[] = ['acoes', 'fiis', 'internacional']
+
+function useLiveBrl(assets: InvestmentAsset[], usdRate: number | undefined) {
+  const stockTickers = assets
+    .filter((a) => BRAPI_STOCK_CATS.includes(a.category))
+    .map((a) => a.name.toUpperCase().trim())
+  const cryptoTickers = assets
+    .filter((a) => a.category === 'cripto')
+    .map((a) => a.name.toUpperCase().trim())
+  const { data: quotes = [] } = useBrapiQuotes(stockTickers)
+  const { data: cryptoQuotes = [] } = useBrapiCryptoQuotes(cryptoTickers)
+  const quoteMap = useMemo(() => new Map([
+    ...quotes.map((q) => [q.symbol.toUpperCase(), q.regularMarketPrice] as const),
+    ...cryptoQuotes.map((q) => [q.symbol.toUpperCase(), q.regularMarketPrice] as const),
+  ]), [quotes, cryptoQuotes])
+  return (asset: InvestmentAsset) => {
+    const livePrice = quoteMap.get(asset.name.toUpperCase().trim())
+    const amount = livePrice != null && asset.quantity != null ? asset.quantity * livePrice : asset.amount
+    if (asset.currency === 'USD' && usdRate) return amount * usdRate
+    return amount
+  }
+}
+
 export function PatrimonioChart({ hideValues }: { hideValues: boolean }) {
   const { isVisible } = useNavStore()
   const showInv  = isVisible('investimentos')
@@ -51,6 +77,7 @@ export function PatrimonioChart({ hideValues }: { hideValues: boolean }) {
   const { data: usdRate } = useExchangeRate()
   const { data: vehicles = [], isLoading: l2 } = useVehiclesQuery()
   const { data: personalAssets = [], isLoading: l3 } = usePersonalAssetsQuery()
+  const toBrl = useLiveBrl(assets, usdRate)
 
   const isLoading = l1 || l2 || l3
 
@@ -58,8 +85,7 @@ export function PatrimonioChart({ hideValues }: { hideValues: boolean }) {
     const inv: Record<string, number> = {}
     if (showInv) {
       for (const a of assets) {
-        const brl = a.currency === 'USD' && usdRate ? a.amount * usdRate : a.amount
-        inv[a.category] = (inv[a.category] ?? 0) + brl
+        inv[a.category] = (inv[a.category] ?? 0) + toBrl(a)
       }
     }
 
@@ -72,11 +98,12 @@ export function PatrimonioChart({ hideValues }: { hideValues: boolean }) {
       : 0
 
     const values: Record<string, number> = {
-      acoes:         inv['acoes']         ?? 0,
-      fiis:          inv['fiis']          ?? 0,
-      cripto:        inv['cripto']        ?? 0,
-      internacional: inv['internacional'] ?? 0,
-      renda_fixa:    inv['renda_fixa']    ?? 0,
+      acoes:                inv['acoes']                ?? 0,
+      fiis:                 inv['fiis']                 ?? 0,
+      cripto:               inv['cripto']               ?? 0,
+      internacional:        inv['internacional']        ?? 0,
+      renda_fixa:           inv['renda_fixa']           ?? 0,
+      reserva_oportunidade: inv['reserva_oportunidade'] ?? 0,
       veiculos,
       bens,
     }

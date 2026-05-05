@@ -6,7 +6,7 @@ import * as Select from '@radix-ui/react-select'
 import { CheckIcon, ChevronDownIcon, DotsHorizontalIcon, Pencil1Icon, TrashIcon } from '@radix-ui/react-icons'
 import { useQueryClient } from '@tanstack/react-query'
 import type { RichInstallment } from '@/domain'
-import { useTogglePaid } from '@/hooks/useInstallments'
+import { useTogglePaid, useDeleteInstallment, useDeleteFromDateOnward } from '@/hooks/useInstallments'
 import { useDeleteTransaction } from '@/hooks/useTransactions'
 import { useCategoriesQuery } from '@/hooks/useCategories'
 import { useAuthStore } from '@/stores/authStore'
@@ -15,7 +15,7 @@ import { useToast } from '@/components/ui/Toast'
 import { transactionService } from '@/services/transactions'
 import { installmentService } from '@/services/installments'
 import { queryKeys } from '@/hooks/queryKeys'
-import { ConfirmDialog } from '../ConfirmDialog'
+import { DeleteInstallmentDialog } from './DeleteInstallmentDialog'
 import { Button } from '@/components/ui/Button'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { formatCurrency } from '@/lib/dateUtils'
@@ -163,12 +163,15 @@ function EditDialog({ open, onOpenChange, item }: EditDialogProps) {
 interface InstallmentRowProps {
   item: RichInstallment
   showProgress?: boolean
+  hidePaidToggle?: boolean
 }
 
-export function InstallmentRow({ item, showProgress }: InstallmentRowProps) {
+export function InstallmentRow({ item, showProgress, hidePaidToggle }: InstallmentRowProps) {
   const { hideValues } = useHideValuesStore()
   const toggle = useTogglePaid()
   const deleteTransaction = useDeleteTransaction()
+  const deleteInstallment = useDeleteInstallment()
+  const deleteFromHere = useDeleteFromDateOnward()
   const isCredit = item.transaction.type === 'credit_card'
   const totalParcelas = item.transaction.total_installments
 
@@ -186,14 +189,18 @@ export function InstallmentRow({ item, showProgress }: InstallmentRowProps) {
       )}>
         <div className="flex items-center gap-4">
         {/* Paid toggle */}
-        <button
-          className={clsx(
-            'h-5 w-5 flex-shrink-0 rounded-full border-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary',
-            item.paid ? 'border-green-500 bg-green-500' : 'border-muted-foreground'
-          )}
-          onClick={() => toggle.mutate({ id: item.id, paid: !item.paid })}
-          aria-label={item.paid ? 'Marcar como pendente' : 'Marcar como pago'}
-        />
+        {hidePaidToggle ? (
+          <span className="h-5 w-5 flex-shrink-0" />
+        ) : (
+          <button
+            className={clsx(
+              'h-5 w-5 flex-shrink-0 rounded-full border-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary',
+              item.paid ? 'border-green-500 bg-green-500' : 'border-muted-foreground'
+            )}
+            onClick={() => toggle.mutate({ id: item.id, paid: !item.paid })}
+            aria-label={item.paid ? 'Marcar como pendente' : 'Marcar como pago'}
+          />
+        )}
 
         {/* Info */}
         <div className="min-w-0 flex-1">
@@ -281,19 +288,25 @@ export function InstallmentRow({ item, showProgress }: InstallmentRowProps) {
 
       <EditDialog open={editOpen} onOpenChange={setEditOpen} item={item} />
 
-      <ConfirmDialog
+      <DeleteInstallmentDialog
         open={deleteOpen}
         onOpenChange={(o) => { if (!o) setDeleteOpen(false) }}
-        title="Excluir lançamento"
-        description={
-          item.transaction.total_installments > 1
-            ? `Isso excluirá todas as ${item.transaction.total_installments} parcelas deste lançamento.`
-            : 'Tem certeza que deseja excluir este lançamento?'
+        item={item}
+        onDeleteOne={() =>
+          deleteInstallment.mutate(item.id, { onSuccess: () => setDeleteOpen(false) })
         }
-        onConfirm={() =>
+        onDeleteAll={() =>
           deleteTransaction.mutate(item.transaction_id, { onSuccess: () => setDeleteOpen(false) })
         }
-        loading={deleteTransaction.isPending}
+        onDeleteFromHere={() =>
+          deleteFromHere.mutate(
+            { transactionId: item.transaction_id, fromDueDate: item.due_date },
+            { onSuccess: () => setDeleteOpen(false) }
+          )
+        }
+        loadingOne={deleteInstallment.isPending}
+        loadingAll={deleteTransaction.isPending}
+        loadingFromHere={deleteFromHere.isPending}
       />
     </>
   )

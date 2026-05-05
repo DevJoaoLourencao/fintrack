@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { useAddSnapshot, useUpdateSnapshot } from '@/hooks/useInvestments'
 import { useExchangeRate } from '@/hooks/useExchangeRate'
+import { useBrapiQuotes, useBrapiCryptoQuotes } from '@/hooks/useBrapiQuotes'
 import { formatCurrency } from '@/lib/dateUtils'
 
 const schema = z.object({
@@ -18,17 +19,19 @@ const schema = z.object({
   cripto: z.number().min(0),
   internacional: z.number().min(0),
   renda_fixa: z.number().min(0),
+  reserva_oportunidade: z.number().min(0),
   notes: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
 
 const FIELDS: { key: keyof Omit<FormValues, 'date' | 'notes'>; label: string; color: string }[] = [
-  { key: 'acoes',         label: 'Ações',               color: '#6366f1' },
-  { key: 'fiis',          label: 'Fundos Imobiliários', color: '#f59e0b' },
-  { key: 'cripto',        label: 'Criptomoedas',        color: '#f97316' },
-  { key: 'internacional', label: 'Internacional (ETF/Stocks/REITs)', color: '#8b5cf6' },
-  { key: 'renda_fixa',    label: 'Renda Fixa / Reserva', color: '#10b981' },
+  { key: 'acoes',                label: 'Ações',                    color: '#6366f1' },
+  { key: 'fiis',                 label: 'Fundos Imobiliários',      color: '#f59e0b' },
+  { key: 'cripto',               label: 'Criptomoedas',             color: '#f97316' },
+  { key: 'internacional',        label: 'Internacional (ETF/Stocks/REITs)', color: '#8b5cf6' },
+  { key: 'renda_fixa',           label: 'Renda Fixa',               color: '#10b981' },
+  { key: 'reserva_oportunidade', label: 'Reserva de Oportunidade',  color: '#06b6d4' },
 ]
 
 function inputClass() {
@@ -52,11 +55,24 @@ export function InvestmentDialog({ open, onOpenChange, snapshot, currentAssets =
   const isPending = add.isPending || update.isPending
   const { data: usdRate } = useExchangeRate()
 
+  const stockTickers = currentAssets
+    .filter((a) => ['acoes', 'fiis', 'internacional'].includes(a.category))
+    .map((a) => a.name.toUpperCase().trim())
+  const cryptoTickers = currentAssets
+    .filter((a) => a.category === 'cripto')
+    .map((a) => a.name.toUpperCase().trim())
+  const { data: stockQuotes = [] } = useBrapiQuotes(stockTickers)
+  const { data: cryptoQuotes = [] } = useBrapiCryptoQuotes(cryptoTickers)
+  const liveQuoteMap = new Map<string, number>([
+    ...stockQuotes.map((q) => [q.symbol.toUpperCase(), q.regularMarketPrice] as const),
+    ...cryptoQuotes.map((q) => [q.symbol.toUpperCase(), q.regularMarketPrice] as const),
+  ])
+
   const hasUsdAssets = currentAssets.some((a) => a.currency === 'USD')
 
   const { register, control, handleSubmit, reset, watch, setValue } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { date: '', acoes: 0, fiis: 0, cripto: 0, internacional: 0, renda_fixa: 0, notes: '' },
+    defaultValues: { date: '', acoes: 0, fiis: 0, cripto: 0, internacional: 0, renda_fixa: 0, reserva_oportunidade: 0, notes: '' },
   })
 
   useEffect(() => {
@@ -68,12 +84,13 @@ export function InvestmentDialog({ open, onOpenChange, snapshot, currentAssets =
         cripto: snapshot?.cripto ?? 0,
         internacional: snapshot?.internacional ?? 0,
         renda_fixa: snapshot?.renda_fixa ?? 0,
+        reserva_oportunidade: snapshot?.reserva_oportunidade ?? 0,
         notes: snapshot?.notes ?? '',
       })
     }
   }, [open, reset, snapshot])
 
-  const values = watch(['acoes', 'fiis', 'cripto', 'internacional', 'renda_fixa'])
+  const values = watch(['acoes', 'fiis', 'cripto', 'internacional', 'renda_fixa', 'reserva_oportunidade'])
   const total = values.reduce((s, v) => s + (v ?? 0), 0)
 
   function toBrl(asset: InvestmentAsset): number {
@@ -89,6 +106,7 @@ export function InvestmentDialog({ open, onOpenChange, snapshot, currentAssets =
     setValue('cripto', sumByCategory('cripto'))
     setValue('internacional', sumByCategory('internacional'))
     setValue('renda_fixa', sumByCategory('renda_fixa'))
+    setValue('reserva_oportunidade', sumByCategory('reserva_oportunidade'))
   }
 
   function onSubmit(data: FormValues) {
@@ -99,13 +117,14 @@ export function InvestmentDialog({ open, onOpenChange, snapshot, currentAssets =
       cripto: data.cripto,
       internacional: data.internacional,
       renda_fixa: data.renda_fixa,
+      reserva_oportunidade: data.reserva_oportunidade,
       notes: data.notes || null,
       usd_rate: usdRate ?? null,
     }
     if (isEditing) {
       update.mutate({ id: snapshot.id, data: payload }, { onSuccess: () => onOpenChange(false) })
     } else {
-      add.mutate(payload, { onSuccess: () => onOpenChange(false) })
+      add.mutate({ data: payload, assets: currentAssets, quoteMap: liveQuoteMap.size > 0 ? liveQuoteMap : undefined }, { onSuccess: () => onOpenChange(false) })
     }
   }
 

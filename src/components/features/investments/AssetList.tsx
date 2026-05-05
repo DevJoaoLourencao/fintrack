@@ -6,14 +6,17 @@ import type { InvestmentAsset, AssetCategory } from '@/domain'
 import { ConfirmDialog } from '@/components/features/ConfirmDialog'
 import { AssetDialog } from './AssetDialog'
 import { useRemoveAsset } from '@/hooks/useInvestments'
+import { useBrapiQuotes, useBrapiCryptoQuotes } from '@/hooks/useBrapiQuotes'
+import { useSelicRate } from '@/hooks/useSelicRate'
 import { formatCurrency } from '@/lib/dateUtils'
 
 const CATEGORIES: { key: AssetCategory; label: string; color: string }[] = [
-  { key: 'acoes',         label: 'Ações',        color: '#6366f1' },
-  { key: 'fiis',          label: 'FIIs',          color: '#f59e0b' },
-  { key: 'cripto',        label: 'Cripto',        color: '#f97316' },
-  { key: 'internacional', label: 'Internacional', color: '#8b5cf6' },
-  { key: 'renda_fixa',    label: 'Renda Fixa',   color: '#10b981' },
+  { key: 'acoes',                label: 'Ações',                    color: '#6366f1' },
+  { key: 'fiis',                 label: 'FIIs',                     color: '#f59e0b' },
+  { key: 'cripto',               label: 'Cripto',                   color: '#f97316' },
+  { key: 'internacional',        label: 'Internacional',            color: '#8b5cf6' },
+  { key: 'renda_fixa',           label: 'Renda Fixa',              color: '#10b981' },
+  { key: 'reserva_oportunidade', label: 'Reserva de Oportunidade', color: '#06b6d4' },
 ]
 
 function formatUsd(value: number): string {
@@ -27,16 +30,39 @@ interface Props {
   isLoading: boolean
   usdRate?: number
   hideValues?: boolean
+  refreshing?: boolean
 }
 
-export function AssetList({ assets, isLoading, usdRate, hideValues = false }: Props) {
+const BRAPI_STOCK_CATEGORIES: AssetCategory[] = ['acoes', 'fiis', 'internacional']
+const BRAPI_CATEGORIES: AssetCategory[] = ['acoes', 'fiis', 'internacional', 'cripto']
+
+export function AssetList({ assets, isLoading, usdRate, hideValues = false, refreshing = false }: Props) {
   const [editAsset, setEditAsset] = useState<InvestmentAsset | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<InvestmentAsset | null>(null)
   const [addCategory, setAddCategory] = useState<AssetCategory | null>(null)
   const [collapsedCategories, setCollapsedCategories] = useState<Set<AssetCategory>>(
-    new Set(['acoes', 'fiis', 'cripto', 'internacional', 'renda_fixa'] as AssetCategory[])
+    new Set(['acoes', 'fiis', 'cripto', 'internacional', 'renda_fixa', 'reserva_oportunidade'] as AssetCategory[])
   )
   const remove = useRemoveAsset()
+  const { data: selicData } = useSelicRate()
+
+  const stockTickers = assets
+    .filter((a) => BRAPI_STOCK_CATEGORIES.includes(a.category))
+    .map((a) => a.name.toUpperCase().trim())
+
+  const cryptoTickers = assets
+    .filter((a) => a.category === 'cripto')
+    .map((a) => a.name.toUpperCase().trim())
+
+  const { data: quotes = [], isFetching: stockLoading, isError: stockError } = useBrapiQuotes(stockTickers)
+  const { data: cryptoQuotes = [], isFetching: cryptoLoading, isError: cryptoError } = useBrapiCryptoQuotes(cryptoTickers)
+
+  const quotesLoading = stockLoading || cryptoLoading
+  const quotesError = stockError && cryptoError
+  const quoteMap = new Map([
+    ...quotes.map((q) => [q.symbol.toUpperCase(), q] as const),
+    ...cryptoQuotes.map((q) => [q.symbol.toUpperCase(), q] as const),
+  ])
 
   function toggleCategory(key: AssetCategory) {
     setCollapsedCategories((prev) => {
@@ -48,21 +74,43 @@ export function AssetList({ assets, isLoading, usdRate, hideValues = false }: Pr
   }
 
   function toBrl(asset: InvestmentAsset): number {
-    if (asset.currency === 'USD' && usdRate) return asset.amount * usdRate
-    return asset.amount
+    const quote = quoteMap.get(asset.name.toUpperCase().trim())
+    const amount = quote != null && asset.quantity != null
+      ? asset.quantity * quote.regularMarketPrice
+      : asset.amount
+    if (asset.currency === 'USD' && usdRate) return amount * usdRate
+    return amount
   }
 
-  const assetsByCategory = CATEGORIES.map((cat) => ({
-    ...cat,
-    assets: assets.filter((a) => a.category === cat.key),
-    total: assets.filter((a) => a.category === cat.key).reduce((s, a) => s + toBrl(a), 0),
-  }))
+  const assetsByCategory = CATEGORIES.map((cat) => {
+    const catAssets = assets.filter((a) => a.category === cat.key)
+    const usdAssets = catAssets.filter((a) => a.currency === 'USD')
+    const usdTotal = usdAssets.length > 0
+      ? usdAssets.reduce((s, a) => {
+          const q = quoteMap.get(a.name.toUpperCase().trim())
+          return s + (q != null && a.quantity != null ? a.quantity * q.regularMarketPrice : a.amount)
+        }, 0)
+      : null
+    return {
+      ...cat,
+      assets: catAssets.slice().sort((a, b) => toBrl(b) - toBrl(a)),
+      total: catAssets.reduce((s, a) => s + toBrl(a), 0),
+      usdTotal,
+    }
+  })
 
-  const categoriesWithAssets = assetsByCategory.filter((c) => c.assets.length > 0)
+  const categoriesWithAssets = assetsByCategory
+    .filter((c) => c.assets.length > 0)
+    .sort((a, b) => b.total - a.total)
 
   return (
     <div className="space-y-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Carteira Atual</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Carteira Atual</p>
+        {quotesError && (
+          <span className="text-xs text-red-500">Erro ao buscar cotações</span>
+        )}
+      </div>
 
       {isLoading && (
         <div className="space-y-2">
@@ -95,9 +143,22 @@ export function AssetList({ assets, isLoading, usdRate, hideValues = false }: Pr
                     <span className="text-sm font-semibold text-foreground">{cat.label}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold tabular-nums text-foreground">
-                      {hideValues ? HIDDEN_VALUE : formatCurrency(cat.total)}
-                    </span>
+                    {cat.usdTotal != null && (
+                      refreshing ? (
+                        <div className="h-3.5 w-14 animate-pulse rounded bg-muted" />
+                      ) : (
+                        <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                          {hideValues ? HIDDEN_VALUE : formatUsd(cat.usdTotal)}
+                        </span>
+                      )
+                    )}
+                    {refreshing ? (
+                      <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                    ) : (
+                      <span className="text-sm font-bold tabular-nums text-foreground">
+                        {hideValues ? HIDDEN_VALUE : formatCurrency(cat.total)}
+                      </span>
+                    )}
                     <ChevronDownIcon
                       className={clsx(
                         'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
@@ -113,42 +174,98 @@ export function AssetList({ assets, isLoading, usdRate, hideValues = false }: Pr
                     <div className="divide-y divide-border">
                       {cat.assets.map((asset) => {
                         const isUsd = asset.currency === 'USD'
-                        const brlValue = toBrl(asset)
+                        const quote = BRAPI_CATEGORIES.includes(asset.category)
+                          ? quoteMap.get(asset.name.toUpperCase().trim())
+                          : undefined
+                        const liveAmount = quote && asset.quantity != null
+                          ? asset.quantity * quote.regularMarketPrice
+                          : null
+                        const displayAmount = liveAmount ?? asset.amount
+                        const brlValue = isUsd && usdRate ? displayAmount * usdRate : displayAmount
+                        const gainPct = asset.quantity != null && asset.avg_price != null
+                          ? (() => {
+                              const cost = asset.quantity * asset.avg_price
+                              const livePrice = quote?.regularMarketPrice
+                              const current = livePrice != null
+                                ? asset.quantity * livePrice
+                                : (isUsd ? asset.amount : brlValue)
+                              return cost > 0 ? ((current - cost) / cost) * 100 : null
+                            })()
+                          : null
+
                         return (
-                          <div key={asset.id} className="flex items-center gap-3 px-4 py-2.5">
+                          <div key={asset.id} className="flex items-center gap-3 px-4 py-3">
+                            {/* Left: name + details */}
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <p className="text-sm font-medium text-foreground">{asset.name}</p>
+                              {/* Row 1: ticker + badges */}
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-foreground">{asset.name}</p>
                                 {isUsd && (
-                                  <span className="rounded px-1 py-0.5 text-[10px] font-semibold bg-blue-500/10 text-blue-500">
-                                    USD
+                                  <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-blue-500/10 text-blue-500">USD</span>
+                                )}
+                                {gainPct != null && (
+                                  <span className={clsx(
+                                    'rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums',
+                                    gainPct >= 0
+                                      ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                                      : 'bg-red-500/10 text-red-500 dark:text-red-400'
+                                  )}>
+                                    {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
                                   </span>
                                 )}
                               </div>
-                              {asset.notes && (
-                                <p className="text-xs text-muted-foreground truncate">{asset.notes}</p>
-                              )}
+                              {/* Row 2: qty · PM · cotação do dia */}
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                {asset.quantity != null && (
+                                  <span className="text-xs text-muted-foreground tabular-nums">
+                                    {asset.quantity % 1 === 0 ? asset.quantity.toFixed(0) : asset.quantity < 0.01 ? asset.quantity.toFixed(4) : asset.quantity.toFixed(2)} unid.
+                                  </span>
+                                )}
+                                {asset.avg_price != null && (
+                                  <span className="text-xs text-muted-foreground tabular-nums">
+                                    PM {isUsd ? formatUsd(asset.avg_price) : formatCurrency(asset.avg_price)}
+                                  </span>
+                                )}
+                                {BRAPI_CATEGORIES.includes(asset.category) && (
+                                  quotesLoading
+                                    ? <span className="h-3 w-20 animate-pulse rounded bg-muted inline-block" />
+                                    : quote
+                                      ? <span className={clsx(
+                                          'text-xs tabular-nums',
+                                          quote.regularMarketChangePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
+                                        )}>
+                                          {isUsd ? formatUsd(quote.regularMarketPrice) : formatCurrency(quote.regularMarketPrice)}{' '}
+                                          <span className="text-[11px]">
+                                            ({quote.regularMarketChangePercent >= 0 ? '+' : ''}{quote.regularMarketChangePercent.toFixed(2)}% hoje)
+                                          </span>
+                                        </span>
+                                      : !quotesError && <span className="text-xs text-muted-foreground/40">sem cotação</span>
+                                )}
+                                {asset.notes && (
+                                  <span className="text-xs text-muted-foreground/60 truncate">{asset.notes}</span>
+                                )}
+                              </div>
                             </div>
+
+                            {/* Right: total value */}
                             <div className="flex-shrink-0 text-right">
                               {hideValues ? (
-                                <p className="text-sm tabular-nums text-foreground font-medium">{HIDDEN_VALUE}</p>
+                                <p className="text-sm font-semibold tabular-nums text-foreground">{HIDDEN_VALUE}</p>
+                              ) : (refreshing || (BRAPI_CATEGORIES.includes(asset.category) && quotesLoading)) ? (
+                                <>
+                                  <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                                  {isUsd && <div className="mt-1 h-3 w-12 animate-pulse rounded bg-muted ml-auto" />}
+                                </>
                               ) : isUsd ? (
                                 <>
-                                  <p className="text-sm tabular-nums text-foreground font-medium">
-                                    {formatUsd(asset.amount)}
-                                  </p>
-                                  {usdRate ? (
-                                    <p className="text-xs tabular-nums text-muted-foreground">
-                                      ≈ {formatCurrency(brlValue)}
-                                    </p>
-                                  ) : (
-                                    <p className="text-xs text-muted-foreground/60">carregando...</p>
-                                  )}
+                                  <p className="text-sm font-semibold tabular-nums text-foreground">{formatUsd(displayAmount)}</p>
+                                  {usdRate
+                                    ? <p className="text-xs tabular-nums text-muted-foreground">≈ {formatCurrency(brlValue)}</p>
+                                    : <p className="text-xs text-muted-foreground/60">carregando...</p>
+                                  }
                                 </>
                               ) : (
-                                <p className="text-sm tabular-nums text-foreground">
-                                  {formatCurrency(asset.amount)}
-                                </p>
+                                <p className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(displayAmount)}</p>
                               )}
                             </div>
                             <DropdownMenu.Root>
@@ -189,6 +306,24 @@ export function AssetList({ assets, isLoading, usdRate, hideValues = false }: Pr
                         )
                       })}
                     </div>
+
+                    {/* Selic info — renda_fixa only */}
+                    {cat.key === 'renda_fixa' && selicData && (
+                      <div className="border-t border-border px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 bg-muted/20">
+                        <span className="text-xs text-muted-foreground">
+                          Selic <span className="font-semibold text-foreground">{selicData.annual.toFixed(2)}% a.a.</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          <span className="font-semibold text-foreground">{selicData.monthly.toFixed(3)}% a.m.</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Rendimento estimado:{' '}
+                          <span className="font-semibold text-green-600 dark:text-green-400">
+                            {hideValues ? HIDDEN_VALUE : `${formatCurrency(cat.total * selicData.monthly / 100)}/mês`}
+                          </span>
+                        </span>
+                      </div>
+                    )}
 
                     {/* Add asset button for this category */}
                     <div className="border-t border-border px-4 py-2">

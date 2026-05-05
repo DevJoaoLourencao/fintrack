@@ -1,4 +1,4 @@
-import type { InvestmentSnapshot, InvestmentSnapshotCreate, InvestmentAsset, InvestmentAssetCreate } from '@/domain'
+import type { InvestmentSnapshot, InvestmentSnapshotCreate, InvestmentAsset, InvestmentAssetCreate, InvestmentSnapshotItem } from '@/domain'
 import { supabase } from '@/lib/supabase'
 
 export const investmentService = {
@@ -7,7 +7,7 @@ export const investmentService = {
       .from('investment_snapshots')
       .select('*')
       .eq('user_id', userId)
-      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
     if (error) throw error
     return data as InvestmentSnapshot[]
   },
@@ -36,6 +36,39 @@ export const investmentService = {
   async remove(id: string): Promise<void> {
     const { error } = await supabase.from('investment_snapshots').delete().eq('id', id)
     if (error) throw error
+  },
+
+  async createSnapshotItems(snapshotId: string, userId: string, assets: InvestmentAsset[], quoteMap?: Map<string, number>): Promise<void> {
+    if (assets.length === 0) return
+    const items = assets.map((a) => {
+      const livePrice = quoteMap?.get(a.name.toUpperCase().trim())
+      const market_price = livePrice != null
+        ? livePrice
+        : (a.quantity && a.quantity > 0 ? a.amount / a.quantity : null)
+      return {
+        snapshot_id: snapshotId,
+        user_id: userId,
+        name: a.name,
+        category: a.category,
+        amount: a.amount,
+        currency: a.currency,
+        quantity: a.quantity ?? null,
+        avg_price: a.avg_price ?? null,
+        market_price,
+      }
+    })
+    const { error } = await supabase.from('investment_snapshot_items').insert(items)
+    if (error) throw error
+  },
+
+  async listSnapshotItems(userId: string): Promise<InvestmentSnapshotItem[]> {
+    const { data, error } = await supabase
+      .from('investment_snapshot_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('amount', { ascending: false })
+    if (error) throw error
+    return data as InvestmentSnapshotItem[]
   },
 }
 

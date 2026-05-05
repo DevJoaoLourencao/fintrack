@@ -1,8 +1,10 @@
 import { PERSONAL_ASSET_CATEGORIES } from "@/components/features/assets/PersonalAssetDialog";
 import { useExchangeRate } from "@/hooks/useExchangeRate";
 import { useInvestmentAssetsQuery } from "@/hooks/useInvestments";
+import { useBrapiQuotes, useBrapiCryptoQuotes } from "@/hooks/useBrapiQuotes";
 import { usePersonalAssetsQuery } from "@/hooks/usePersonalAssets";
 import { useVehicleSalesQuery, useVehiclesQuery } from "@/hooks/useVehicles";
+import type { InvestmentAsset, AssetCategory } from "@/domain";
 import { formatCurrency } from "@/lib/dateUtils";
 import { useNavStore } from "@/stores/navStore";
 import { ArrowRightIcon } from "@radix-ui/react-icons";
@@ -10,12 +12,43 @@ import { clsx } from "clsx";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
+const BRAPI_STOCK_CATEGORIES: AssetCategory[] = ["acoes", "fiis", "internacional"];
+
+function useLiveBrl(assets: InvestmentAsset[], usdRate: number | undefined) {
+  const stockTickers = assets
+    .filter((a) => BRAPI_STOCK_CATEGORIES.includes(a.category))
+    .map((a) => a.name.toUpperCase().trim())
+  const cryptoTickers = assets
+    .filter((a) => a.category === "cripto")
+    .map((a) => a.name.toUpperCase().trim())
+
+  const { data: quotes = [] } = useBrapiQuotes(stockTickers)
+  const { data: cryptoQuotes = [] } = useBrapiCryptoQuotes(cryptoTickers)
+
+  const quoteMap = useMemo(() => new Map([
+    ...quotes.map((q) => [q.symbol.toUpperCase(), q.regularMarketPrice] as const),
+    ...cryptoQuotes.map((q) => [q.symbol.toUpperCase(), q.regularMarketPrice] as const),
+  ]), [quotes, cryptoQuotes])
+
+  function toBrl(asset: InvestmentAsset): number {
+    const livePrice = quoteMap.get(asset.name.toUpperCase().trim())
+    const amount = livePrice != null && asset.quantity != null
+      ? asset.quantity * livePrice
+      : asset.amount
+    if (asset.currency === "USD" && usdRate) return amount * usdRate
+    return amount
+  }
+
+  return { toBrl }
+}
+
 const CATEGORIES: { key: string; label: string; color: string }[] = [
-  { key: "acoes", label: "Ações", color: "#6366f1" },
-  { key: "fiis", label: "FIIs", color: "#f59e0b" },
-  { key: "cripto", label: "Cripto", color: "#f97316" },
-  { key: "internacional", label: "Internacional", color: "#8b5cf6" },
-  { key: "renda_fixa", label: "Renda Fixa", color: "#10b981" },
+  { key: "acoes",                label: "Ações",                    color: "#6366f1" },
+  { key: "fiis",                 label: "FIIs",                     color: "#f59e0b" },
+  { key: "cripto",               label: "Cripto",                   color: "#f97316" },
+  { key: "internacional",        label: "Internacional",            color: "#8b5cf6" },
+  { key: "renda_fixa",           label: "Renda Fixa",              color: "#10b981" },
+  { key: "reserva_oportunidade", label: "Reserva de Oportunidade", color: "#06b6d4" },
 ];
 
 const HIDDEN_VALUE = "••••••";
@@ -68,13 +101,13 @@ function Divider() {
 function InvestimentosWidget({ hideValues }: { hideValues: boolean }) {
   const { data: assets = [], isLoading } = useInvestmentAssetsQuery();
   const { data: usdRate } = useExchangeRate();
+  const { toBrl } = useLiveBrl(assets, usdRate);
 
   const { total, byCategory } = useMemo(() => {
     const cats: Record<string, number> = {};
     let sum = 0;
     for (const a of assets) {
-      const brl =
-        a.currency === "USD" && usdRate ? a.amount * usdRate : a.amount;
+      const brl = toBrl(a);
       sum += brl;
       cats[a.category] = (cats[a.category] ?? 0) + brl;
     }
@@ -83,7 +116,7 @@ function InvestimentosWidget({ hideValues }: { hideValues: boolean }) {
       value: cats[c.key] ?? 0,
     })).filter((c) => c.value > 0);
     return { total: sum, byCategory: sorted };
-  }, [assets, usdRate]);
+  }, [assets, usdRate, toBrl]);
 
   return (
     <WidgetCard title="Investimentos" to="/investimentos" isLoading={isLoading}>
@@ -313,14 +346,12 @@ function PatrimonioWidget({ hideValues }: { hideValues: boolean }) {
   const { data: usdRate } = useExchangeRate();
   const { data: vehicles = [], isLoading: loadingVehicles } = useVehiclesQuery();
   const { data: personalAssets = [], isLoading: loadingPersonal } = usePersonalAssetsQuery();
+  const { toBrl: toInvBrl } = useLiveBrl(assets, usdRate);
 
   const totalInvestimentos = useMemo(() => {
     if (!showInv) return 0;
-    return assets.reduce((sum, a) => {
-      const brl = a.currency === "USD" && usdRate ? a.amount * usdRate : a.amount;
-      return sum + brl;
-    }, 0);
-  }, [assets, usdRate, showInv]);
+    return assets.reduce((sum, a) => sum + toInvBrl(a), 0);
+  }, [assets, usdRate, showInv, toInvBrl]);
 
   const totalVeiculos = showMot
     ? vehicles.filter((v) => v.status === "active").reduce((s, v) => s + v.purchase_price, 0)

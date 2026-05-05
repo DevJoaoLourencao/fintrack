@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { InvestmentSnapshotCreate, InvestmentAssetCreate } from '@/domain'
+import type { InvestmentSnapshotCreate, InvestmentAssetCreate, InvestmentAsset } from '@/domain'
 import { investmentService, investmentAssetService } from '@/services/investments'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/components/ui/Toast'
@@ -17,7 +17,19 @@ export function useInvestmentSnapshotsQuery() {
 function useInvalidate() {
   const userId = useAuthStore((s) => s.user!.id)
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: queryKeys.investmentSnapshots(userId) })
+  return () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.investmentSnapshots(userId) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.investmentSnapshotItems(userId) })
+  }
+}
+
+export function useInvestmentSnapshotItemsQuery() {
+  const userId = useAuthStore((s) => s.user!.id)
+  return useQuery({
+    queryKey: queryKeys.investmentSnapshotItems(userId),
+    queryFn: () => investmentService.listSnapshotItems(userId),
+    enabled: !!userId,
+  })
 }
 
 export function useAddSnapshot() {
@@ -26,7 +38,13 @@ export function useAddSnapshot() {
   const invalidate = useInvalidate()
 
   return useMutation({
-    mutationFn: (data: InvestmentSnapshotCreate) => investmentService.create(userId, data),
+    mutationFn: async ({ data, assets, quoteMap }: { data: InvestmentSnapshotCreate; assets?: InvestmentAsset[]; quoteMap?: Map<string, number> }) => {
+      const snapshot = await investmentService.create(userId, data)
+      if (assets && assets.length > 0) {
+        await investmentService.createSnapshotItems(snapshot.id, userId, assets, quoteMap)
+      }
+      return snapshot
+    },
     onSuccess: () => { invalidate(); toast({ title: 'Snapshot registrado.' }) },
     onError: (err: Error) => toast({ title: 'Erro ao registrar snapshot', description: err.message, variant: 'destructive' }),
   })

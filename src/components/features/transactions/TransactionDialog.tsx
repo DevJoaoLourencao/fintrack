@@ -12,7 +12,7 @@ import { useAddTransaction } from '@/hooks/useTransactions'
 import { useFiltersStore } from '@/stores/filtersStore'
 import { Button } from '@/components/ui/Button'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
-import { addMonths, formatCurrency, formatMonth, formatMonthLabel } from '@/lib/dateUtils'
+import { addMonths, formatCurrency, formatMonth, formatMonthLabel, parseMonth } from '@/lib/dateUtils'
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ const schema = z
     current_installment: z.number().int().min(1).default(1),
   })
   .superRefine((data, ctx) => {
-    if (data.type === 'credit_card' && !data.card_id) {
+    if ((data.type === 'credit_card' || data.type === 'subscription') && !data.card_id) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Selecione um cartão',
@@ -51,9 +51,9 @@ type FormValues = z.infer<typeof schema>
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<string, string> = {
-  credit_card: 'Cartão de Crédito',
-  recurring: 'Recorrente',
-  subscription: 'Assinatura',
+  credit_card: 'Parcela de Cartão',
+  recurring: 'Recorrente / Débito',
+  subscription: 'Assinatura no Cartão',
 }
 
 function inputClass(hasError?: boolean) {
@@ -149,15 +149,15 @@ export function TransactionDialog({ open, onOpenChange }: TransactionDialogProps
   const isSubscription = watchedType === 'subscription'
   const hasNoCategories = categories.length === 0
   const hasNoCards = cards.length === 0
-  const isBlocked = hasNoCategories || (isCreditCard && hasNoCards)
+  const isBlocked = hasNoCategories || ((isCreditCard || isSubscription) && hasNoCards)
 
   const installmentAmount =
     watchedAmount > 0 && watchedInstallments > 0 ? watchedAmount / watchedInstallments : 0
 
   const showCurrentInstallment = isCreditCard && watchedInstallments > 1
   const isInProgress = showCurrentInstallment && watchedCurrentInstallment > 1
-  const computedPurchaseMonth = isInProgress
-    ? formatMonth(addMonths(new Date(`${selectedMonth}-01`), -watchedCurrentInstallment))
+  const computedPurchaseMonth = showCurrentInstallment
+    ? formatMonth(addMonths(parseMonth(selectedMonth), -watchedCurrentInstallment))
     : null
 
   function onSubmit(data: FormValues) {
@@ -183,7 +183,7 @@ export function TransactionDialog({ open, onOpenChange }: TransactionDialogProps
             </div>
           )}
 
-          {isCreditCard && hasNoCards && (
+          {(isCreditCard || isSubscription) && hasNoCards && (
             <div className="mb-4">
               <PrerequisiteAlert>
                 Cadastre um <strong>cartão de crédito</strong> em{' '}
@@ -267,7 +267,7 @@ export function TransactionDialog({ open, onOpenChange }: TransactionDialogProps
             />
 
             {/* Data */}
-            {!isInProgress && (
+            {!showCurrentInstallment && (
               <div>
                 <label htmlFor="purchase_date" className="text-sm text-muted-foreground">
                   Data da compra
@@ -324,9 +324,7 @@ export function TransactionDialog({ open, onOpenChange }: TransactionDialogProps
                 control={control}
                 render={({ field }) => (
                   <div>
-                    <span className="text-sm text-muted-foreground">
-                      Cartão{isSubscription && <span className="ml-1 text-xs">(opcional)</span>}
-                    </span>
+                    <span className="text-sm text-muted-foreground">Cartão</span>
                     <Select.Root
                       value={field.value ?? ''}
                       onValueChange={field.onChange}
@@ -471,11 +469,11 @@ export function TransactionDialog({ open, onOpenChange }: TransactionDialogProps
                         </Select.Content>
                       </Select.Portal>
                     </Select.Root>
-                    {isInProgress && computedPurchaseMonth && (
+                    {computedPurchaseMonth && (
                       <div className="mt-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
                         Compra calculada para{' '}
                         <strong className="text-foreground">{formatMonthLabel(computedPurchaseMonth)}</strong>.
-                        {' '}Parcelas 1–{watchedCurrentInstallment - 1} serão marcadas como pagas.
+                        {isInProgress && ` Parcelas 1–${watchedCurrentInstallment - 1} serão marcadas como pagas.`}
                       </div>
                     )}
                     <FieldError message={errors.current_installment?.message} />
@@ -492,7 +490,7 @@ export function TransactionDialog({ open, onOpenChange }: TransactionDialogProps
 
             {isSubscription && (
               <p className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
-                Assinatura recorrente — lançada automaticamente todo mês. Aparece na seção "Assinaturas", separada de parcelas e lançamentos avulsos.
+                Assinatura cobrada no cartão — lançada todo mês automaticamente. Aparece na seção "Assinaturas" e é somada à fatura do cartão.
               </p>
             )}
 

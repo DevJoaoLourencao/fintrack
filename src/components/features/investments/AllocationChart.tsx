@@ -4,11 +4,12 @@ import type { InvestmentSnapshot } from '@/domain'
 import { useHideValuesStore } from '@/stores/hideValuesStore'
 
 const CATEGORIES = [
-  { key: 'acoes'         as const, label: 'Ações',        color: '#6366f1' },
-  { key: 'fiis'          as const, label: 'FIIs',          color: '#f59e0b' },
-  { key: 'cripto'        as const, label: 'Cripto',        color: '#f97316' },
-  { key: 'internacional' as const, label: 'Internacional', color: '#8b5cf6' },
-  { key: 'renda_fixa'    as const, label: 'Renda Fixa',   color: '#10b981' },
+  { key: 'acoes'                as const, label: 'Ações',                    color: '#6366f1' },
+  { key: 'fiis'                 as const, label: 'FIIs',                     color: '#f59e0b' },
+  { key: 'cripto'               as const, label: 'Cripto',                   color: '#f97316' },
+  { key: 'internacional'        as const, label: 'Internacional',            color: '#8b5cf6' },
+  { key: 'renda_fixa'           as const, label: 'Renda Fixa',              color: '#10b981' },
+  { key: 'reserva_oportunidade' as const, label: 'Reserva de Oportunidade', color: '#06b6d4' },
 ]
 
 const formatBrl = (v: number) =>
