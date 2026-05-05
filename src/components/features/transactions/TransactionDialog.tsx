@@ -27,7 +27,7 @@ const schema = z
     category_id: z.string().min(1, 'Selecione uma categoria'),
     card_id: z.string().nullable(),
     total_installments: z.number().int().min(1).max(48),
-    current_installment: z.number().int().min(1).default(1),
+    current_installment: z.number().int().min(1),
   })
   .superRefine((data, ctx) => {
     if ((data.type === 'credit_card' || data.type === 'subscription') && !data.card_id) {

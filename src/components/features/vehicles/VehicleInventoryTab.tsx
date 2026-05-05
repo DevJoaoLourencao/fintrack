@@ -72,7 +72,7 @@ export function VehicleInventoryTab({ vehicles, isLoading }: Props) {
               </button>
             ))}
           </div>
-          <Button onClick={() => setAddOpen(true)} className="gap-1.5" size="sm">
+          <Button onClick={() => setAddOpen(true)} className="gap-1.5 px-3 py-1.5 text-sm">
             <PlusIcon className="h-4 w-4" /> Adicionar
           </Button>
         </div>

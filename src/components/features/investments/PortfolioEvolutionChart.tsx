@@ -51,8 +51,8 @@ export function PortfolioEvolutionChart({ snapshots }: Props) {
           <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--muted-foreground))" interval={0} angle={-35} textAnchor="end" height={50} />
           <YAxis tickFormatter={(v) => hideValues ? 'R$ ••••' : formatBRL(v)} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} stroke="hsl(var(--muted-foreground))" width={60} />
           <Tooltip
-            formatter={(value: number) =>
-              hideValues ? '••••••' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+            formatter={(value: unknown) =>
+              hideValues ? '••••••' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value as number)
             }
             contentStyle={{
               backgroundColor: 'hsl(var(--card))',

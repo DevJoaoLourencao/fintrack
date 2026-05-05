@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import type { TooltipProps, PieLabelRenderProps } from 'recharts'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Cross2Icon, GearIcon } from '@radix-ui/react-icons'
 import type { AssetCategory } from '@/domain'
@@ -21,7 +20,8 @@ interface ChartEntry {
   color: string
 }
 
-function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const entry = payload[0].payload as ChartEntry
   return (
@@ -35,8 +35,9 @@ function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
   )
 }
 
-function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, payload }: PieLabelRenderProps & { payload: ChartEntry }) {
-  const pct = (payload as ChartEntry & { value: number }).value
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, payload }: any) {
+  const pct = (payload as ChartEntry).value
   if (pct < 4) return null
   const RADIAN = Math.PI / 180
   const r = Number(innerRadius) + (Number(outerRadius) - Number(innerRadius)) * 0.5

@@ -1,5 +1,4 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import type { TooltipProps, PieLabelRenderProps } from 'recharts'
 import type { InvestmentSnapshot } from '@/domain'
 import { useHideValuesStore } from '@/stores/hideValuesStore'
 
@@ -22,7 +21,8 @@ interface ChartEntry {
   pct: number
 }
 
-function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CustomTooltip({ active, payload }: any) {
   const { hideValues } = useHideValuesStore()
   if (!active || !payload?.length) return null
   const entry = payload[0].payload as ChartEntry
@@ -39,7 +39,8 @@ function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
   )
 }
 
-function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, payload }: PieLabelRenderProps & { payload: ChartEntry }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, payload }: any) {
   if ((payload.pct ?? 0) < 3) return null
 
   const RADIAN = Math.PI / 180
