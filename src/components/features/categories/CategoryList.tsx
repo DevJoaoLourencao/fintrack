@@ -45,7 +45,8 @@ export function CategoryList() {
     <>
       <ul className="space-y-2">
         {categories.map((cat) => {
-          const Icon = ICON_MAP[cat.icon] ?? StarIcon
+          const RadixIcon = ICON_MAP[cat.icon] ?? StarIcon
+          const isEmoji = !ICON_MAP[cat.icon]
           return (
             <li
               key={cat.id}
@@ -56,7 +57,10 @@ export function CategoryList() {
                   className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-white"
                   style={{ backgroundColor: cat.color }}
                 >
-                  <Icon className="h-4 w-4" />
+                  {isEmoji
+                    ? <span className="text-sm leading-none">{cat.icon}</span>
+                    : <RadixIcon className="h-4 w-4" />
+                  }
                 </span>
                 <p className="text-sm font-medium text-foreground">{cat.name}</p>
               </div>
