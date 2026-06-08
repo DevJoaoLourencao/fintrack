@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { DotsHorizontalIcon, MinusIcon, TrashIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import { DotsHorizontalIcon, MinusIcon, TrashIcon, MagnifyingGlassIcon, PlusIcon } from '@radix-ui/react-icons'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import * as Dialog from '@radix-ui/react-dialog'
 import { clsx } from 'clsx'
 import type { RichVehicleSale } from '@/domain'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/features/ConfirmDialog'
-import { useMarkInstallmentPaid, useUnmarkInstallmentPaid, useRemoveVehicleSale } from '@/hooks/useVehicles'
+import { useMarkInstallmentPaid, useUnmarkInstallmentPaid, useRemoveVehicleSale, useAddExtraPayment } from '@/hooks/useVehicles'
 import { formatCurrency } from '@/lib/dateUtils'
 import { useHideValuesStore } from '@/stores/hideValuesStore'
 
@@ -16,9 +17,81 @@ interface Props {
   isLoading: boolean
 }
 
+function ExtraPaymentDialog({
+  sale,
+  open,
+  onOpenChange,
+}: {
+  sale: RichVehicleSale
+  open: boolean
+  onOpenChange: (o: boolean) => void
+}) {
+  const [value, setValue] = useState('')
+  const addExtra = useAddExtraPayment()
+  const amount = parseFloat(value.replace(',', '.'))
+  const isValid = !isNaN(amount) && amount > 0
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!isValid) return
+    addExtra.mutate(
+      { saleId: sale.id, currentExtraPaid: sale.extra_paid, amount },
+      { onSuccess: () => { onOpenChange(false); setValue('') } }
+    )
+  }
+
+  return (
+    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) setValue(''); onOpenChange(o) }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border/50 bg-card p-6 shadow-card-lg focus:outline-none">
+          <Dialog.Title className="mb-1 text-base font-semibold text-foreground">
+            Pagamento avulso
+          </Dialog.Title>
+          <p className="mb-4 text-xs text-muted-foreground">
+            {sale.vehicle.name} · valor será descontado do saldo restante sem alterar o parcelamento.
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground">Valor recebido (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                autoFocus
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Ex: 500,00"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+            </div>
+
+            {sale.extra_paid > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Já pago avulso anteriormente: <span className="font-medium text-foreground">{formatCurrency(sale.extra_paid)}</span>
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-1">
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={addExtra.isPending}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={addExtra.isPending} disabled={!isValid}>
+                Registrar
+              </Button>
+            </div>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
 export function VehicleReceivablesTab({ sales, isLoading }: Props) {
   const { hideValues } = useHideValuesStore()
   const [confirmCancel, setConfirmCancel] = useState<RichVehicleSale | null>(null)
+  const [extraPaymentSale, setExtraPaymentSale] = useState<RichVehicleSale | null>(null)
   const [search, setSearch] = useState('')
   const markPaid = useMarkInstallmentPaid()
   const unmarkPaid = useUnmarkInstallmentPaid()
@@ -29,7 +102,7 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
     : sales
 
   const totalRemaining = filtered.reduce(
-    (sum, s) => sum + (s.installments_count - s.installments_paid) * s.installments_amount,
+    (sum, s) => sum + Math.max(0, (s.installments_count - s.installments_paid) * s.installments_amount - s.extra_paid),
     0
   )
 
@@ -72,7 +145,8 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
         const progressPct = sale.installments_count > 0
           ? (sale.installments_paid / sale.installments_count) * 100
           : 100
-        const remainingValue = remaining * sale.installments_amount
+        const grossRemaining = remaining * sale.installments_amount
+        const remainingValue = Math.max(0, grossRemaining - sale.extra_paid)
         const canUnmark = sale.installments_paid > 0
 
         return (
@@ -102,6 +176,14 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
                     sideOffset={4}
                     className="z-50 min-w-[200px] rounded-lg border border-border bg-card p-1 shadow-lg animate-in fade-in-0 zoom-in-95"
                   >
+                    <DropdownMenu.Item
+                      onSelect={() => setExtraPaymentSale(sale)}
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground outline-none hover:bg-muted focus:bg-muted"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      Pagamento avulso
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator className="my-1 h-px bg-border" />
                     <DropdownMenu.Item
                       onSelect={() => canUnmark && unmarkPaid.mutate(sale)}
                       disabled={!canUnmark}
@@ -138,6 +220,11 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
               {sale.trade_description && (
                 <span>Troca: {sale.trade_description}{sale.trade_value > 0 && ` (${hideValues ? HIDDEN_VALUE : formatCurrency(sale.trade_value)})`}</span>
               )}
+              {sale.extra_paid > 0 && (
+                <span className="text-primary font-medium">
+                  + {hideValues ? HIDDEN_VALUE : formatCurrency(sale.extra_paid)} avulso recebido
+                </span>
+              )}
             </div>
 
             {sale.installments_count > 0 && (
@@ -148,9 +235,11 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
                   </span>
                   <span className={clsx(
                     'font-medium tabular-nums',
-                    remaining > 0 ? 'text-foreground' : 'text-green-500'
+                    remainingValue > 0 ? 'text-foreground' : 'text-green-500'
                   )}>
-                    {remaining > 0 ? `${hideValues ? HIDDEN_VALUE : formatCurrency(remainingValue)} restantes` : 'Quitado'}
+                    {remainingValue > 0
+                      ? `${hideValues ? HIDDEN_VALUE : formatCurrency(remainingValue)} restantes`
+                      : 'Quitado'}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-muted">
@@ -159,6 +248,11 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
+                {sale.extra_paid > 0 && grossRemaining > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Bruto: {hideValues ? HIDDEN_VALUE : formatCurrency(grossRemaining)} · desconto avulso: {hideValues ? HIDDEN_VALUE : formatCurrency(sale.extra_paid)}
+                  </p>
+                )}
               </div>
             )}
 
@@ -175,6 +269,14 @@ export function VehicleReceivablesTab({ sales, isLoading }: Props) {
           </div>
         )
       })}
+
+      {extraPaymentSale && (
+        <ExtraPaymentDialog
+          sale={extraPaymentSale}
+          open={!!extraPaymentSale}
+          onOpenChange={(o) => { if (!o) setExtraPaymentSale(null) }}
+        />
+      )}
 
       <ConfirmDialog
         open={!!confirmCancel}

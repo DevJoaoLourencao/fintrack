@@ -24,6 +24,7 @@ export interface VehicleSale {
   installments_count: number
   installments_amount: number
   installments_paid: number
+  extra_paid: number
   trade_description: string | null
   trade_value: number
   notes: string | null

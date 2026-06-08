@@ -97,6 +97,14 @@ export const vehicleSaleService = {
     return row as VehicleSale
   },
 
+  async addExtraPayment(saleId: string, currentExtraPaid: number, amount: number): Promise<void> {
+    const { error } = await supabase
+      .from('vehicle_sales')
+      .update({ extra_paid: currentExtraPaid + amount })
+      .eq('id', saleId)
+    if (error) throw error
+  },
+
   async remove(saleId: string, vehicleId: string): Promise<void> {
     const { error } = await supabase.from('vehicle_sales').delete().eq('id', saleId)
     if (error) throw error

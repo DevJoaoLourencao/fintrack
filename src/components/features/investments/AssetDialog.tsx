@@ -30,8 +30,12 @@ const schema = z.object({
   category: z.enum(['acoes', 'fiis', 'cripto', 'internacional', 'renda_fixa', 'reserva_oportunidade'] as const),
   amount:   z.number().min(0.01, 'Valor obrigatório'),
   currency: z.enum(['BRL', 'USD'] as const),
-  quantity:  z.number().positive().nullable().optional(),
-  avg_price: z.number().positive().nullable().optional(),
+  quantity:        z.number().positive().nullable().optional(),
+  avg_price:       z.number().positive().nullable().optional(),
+  dividendo_anual: z.number().positive().nullable().optional(),
+  dy_manual:       z.number().positive().max(100).nullable().optional(),
+  lpa:             z.number().positive().nullable().optional(),
+  vpa:             z.number().positive().nullable().optional(),
   notes:     z.string().optional(),
 })
 
@@ -66,12 +70,18 @@ export function AssetDialog({ open, onOpenChange, asset, defaultCategory }: Prop
       currency:  'BRL',
       quantity:  null,
       avg_price: null,
+      dividendo_anual: null,
+      dy_manual:       null,
+      lpa:  null,
+      vpa:  null,
       notes:     '',
     },
   })
 
   const selectedCategory = watch('category')
   const showAvgPrice = ['acoes', 'fiis', 'internacional'].includes(selectedCategory)
+  const showPrecoTeto = ['acoes', 'fiis'].includes(selectedCategory)
+  const showGraham = selectedCategory === 'acoes'
 
   const selectedCurrency = useWatch({ control, name: 'currency' })
 
@@ -84,6 +94,10 @@ export function AssetDialog({ open, onOpenChange, asset, defaultCategory }: Prop
         currency:  asset?.currency ?? 'BRL',
         quantity:  asset?.quantity ?? null,
         avg_price: asset?.avg_price ?? null,
+        dividendo_anual: asset?.dividendo_anual ?? null,
+        dy_manual:       asset?.dy_manual ?? null,
+        lpa:  asset?.lpa ?? null,
+        vpa:  asset?.vpa ?? null,
         notes:     asset?.notes ?? '',
       })
     }
@@ -97,6 +111,10 @@ export function AssetDialog({ open, onOpenChange, asset, defaultCategory }: Prop
       currency:  data.currency,
       quantity:  data.quantity ?? null,
       avg_price: data.avg_price ?? null,
+      dividendo_anual: data.dividendo_anual ?? null,
+      dy_manual:       data.dy_manual ?? null,
+      lpa:  data.lpa ?? null,
+      vpa:  data.vpa ?? null,
       notes:     data.notes || null,
     }
     if (isEditing) {
@@ -290,6 +308,86 @@ export function AssetDialog({ open, onOpenChange, asset, defaultCategory }: Prop
                 />
               </div>
             </div>
+
+            {showPrecoTeto && (
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Preço Teto — dados manuais
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Controller
+                    name="dividendo_anual"
+                    control={control}
+                    render={({ field }) => (
+                      <div>
+                        <label className="text-sm text-muted-foreground">
+                          Dividendo/ano <span className="text-xs">(R$)</span>
+                        </label>
+                        <CurrencyInput
+                          value={field.value ?? 0}
+                          onChange={(v) => field.onChange(v === 0 ? null : v)}
+                          currency="BRL"
+                          className="mt-1"
+                        />
+                      </div>
+                    )}
+                  />
+                  <div>
+                    <label className="text-sm text-muted-foreground">
+                      DY <span className="text-xs">(%)</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      className={inputClass()}
+                      placeholder="Ex: 8.5"
+                      {...register('dy_manual', {
+                        setValueAs: (v) => (v === '' || v === null ? null : Number(v)),
+                      })}
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground/70">
+                  Preencha um dos dois. DY% usa o preço atual da cotação para calcular.
+                </p>
+                {showGraham && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Controller
+                      name="lpa"
+                      control={control}
+                      render={({ field }) => (
+                        <div>
+                          <label className="text-sm text-muted-foreground">LPA <span className="text-xs">(lucro/ação)</span></label>
+                          <CurrencyInput
+                            value={field.value ?? 0}
+                            onChange={(v) => field.onChange(v === 0 ? null : v)}
+                            currency="BRL"
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
+                    />
+                    <Controller
+                      name="vpa"
+                      control={control}
+                      render={({ field }) => (
+                        <div>
+                          <label className="text-sm text-muted-foreground">VPA <span className="text-xs">(valor patrimonial)</span></label>
+                          <CurrencyInput
+                            value={field.value ?? 0}
+                            onChange={(v) => field.onChange(v === 0 ? null : v)}
+                            currency="BRL"
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="text-sm text-muted-foreground">Observações (opcional)</label>

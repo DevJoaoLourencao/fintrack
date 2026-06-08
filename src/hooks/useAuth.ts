@@ -39,6 +39,8 @@ export function useAuth() {
     loading,
     signIn,
     signUp,
+    resetPassword: authService.resetPassword,
+    updatePassword: authService.updatePassword,
     signOut: () => authService.signOut().then(reset),
   }
 }

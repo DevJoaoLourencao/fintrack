@@ -1,4 +1,5 @@
 export { LoginPage } from './LoginPage'
+export { ResetPasswordPage } from './ResetPasswordPage'
 export { DashboardPage } from './DashboardPage'
 export { TransactionsPage } from './TransactionsPage'
 export { ConfigurationsPage } from './ConfigurationsPage'

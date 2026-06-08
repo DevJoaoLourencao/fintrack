@@ -7,6 +7,8 @@ import { PortfolioNotes } from "@/components/features/investments/PortfolioNotes
 import { SnapshotList } from "@/components/features/investments/SnapshotList";
 import type { AssetCategory, InvestmentAsset } from "@/domain";
 import { useBrapiCryptoQuotes, useBrapiQuotes } from "@/hooks/useBrapiQuotes";
+import { useBrapiFundamentals } from "@/hooks/useBrapiFundamentals";
+import type { BrapiFundamentals } from "@/services/brapi";
 import { useExchangeRate } from "@/hooks/useExchangeRate";
 import {
   useInvestmentAssetsQuery,
@@ -116,9 +118,20 @@ export function InvestmentsPage() {
   const cryptoTickers = assets
     .filter((a) => a.category === "cripto")
     .map((a) => a.name.toUpperCase().trim());
+  const fundamentalsTickers = assets
+    .filter((a) => (["acoes", "fiis"] as AssetCategory[]).includes(a.category))
+    .map((a) => a.name.toUpperCase().trim());
 
   const { data: quotes = [] } = useBrapiQuotes(stockTickers);
   const { data: cryptoQuotes = [] } = useBrapiCryptoQuotes(cryptoTickers);
+  const { data: fundamentalsData = [] } = useBrapiFundamentals(fundamentalsTickers);
+
+  const fundamentalsMap = useMemo(
+    () => new Map<string, BrapiFundamentals>(
+      fundamentalsData.map((f) => [f.symbol.toUpperCase(), f])
+    ),
+    [fundamentalsData],
+  );
 
   const quoteMap = useMemo(
     () =>
@@ -247,6 +260,7 @@ export function InvestmentsPage() {
         usdRate={usdRate}
         hideValues={hideValues}
         refreshing={refreshing}
+        fundamentalsMap={fundamentalsMap}
       />
 
       {/* Observations */}

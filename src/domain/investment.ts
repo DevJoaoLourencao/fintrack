@@ -29,6 +29,10 @@ export interface InvestmentAsset {
   avg_price: number | null
   currency: AssetCurrency
   notes: string | null
+  dividendo_anual: number | null
+  dy_manual: number | null
+  lpa: number | null
+  vpa: number | null
   created_at: string
   updated_at: string
 }

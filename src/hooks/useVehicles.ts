@@ -126,6 +126,21 @@ export function useUnmarkInstallmentPaid() {
   })
 }
 
+export function useAddExtraPayment() {
+  const { toast } = useToast()
+  const invalidate = useInvalidateAll()
+
+  return useMutation({
+    mutationFn: ({ saleId, currentExtraPaid, amount }: { saleId: string; currentExtraPaid: number; amount: number }) =>
+      vehicleSaleService.addExtraPayment(saleId, currentExtraPaid, amount),
+    onSuccess: (_, { amount }) => {
+      invalidate()
+      toast({ title: `Pagamento avulso de ${amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} registrado.` })
+    },
+    onError: (err: Error) => toast({ title: 'Erro ao registrar pagamento', description: err.message, variant: 'destructive' }),
+  })
+}
+
 export function useRemoveVehicleSale() {
   const { toast } = useToast()
   const invalidate = useInvalidateAll()

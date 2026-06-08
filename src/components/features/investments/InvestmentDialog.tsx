@@ -94,8 +94,12 @@ export function InvestmentDialog({ open, onOpenChange, snapshot, currentAssets =
   const total = values.reduce((s, v) => s + (v ?? 0), 0)
 
   function toBrl(asset: InvestmentAsset): number {
-    if (asset.currency === 'USD' && usdRate) return asset.amount * usdRate
-    return asset.amount
+    const livePrice = liveQuoteMap.get(asset.name.toUpperCase().trim())
+    const amount = livePrice != null && asset.quantity != null
+      ? asset.quantity * livePrice
+      : asset.amount
+    if (asset.currency === 'USD' && usdRate) return amount * usdRate
+    return amount
   }
 
   function fillFromAssets() {

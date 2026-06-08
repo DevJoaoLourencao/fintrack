@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { Layout } from '@/components/ui/Layout'
 import { ToastProvider } from '@/components/ui/Toast'
 import { LoginPage } from '@/pages/LoginPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { TransactionsPage } from '@/pages/TransactionsPage'
 import { ConfigurationsPage } from '@/pages/ConfigurationsPage'
@@ -45,6 +46,7 @@ export default function App() {
       <ToastProvider />
       <Routes>
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+        <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
         <Route
           element={
             <ProtectedRoute>

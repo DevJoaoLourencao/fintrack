@@ -24,6 +24,11 @@ export function formatDate(dateStr: string): string {
   return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`
 }
 
+export function formatDateShort(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${String(y).slice(-2)}`
+}
+
 export function formatTime(isoStr: string): string {
   const d = new Date(isoStr)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`

@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
-type Mode = 'login' | 'signup'
+type Mode = 'login' | 'signup' | 'forgot'
 
 export function LoginPage() {
   const [mode, setMode] = useState<Mode>('login')
@@ -14,7 +14,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, resetPassword } = useAuth()
 
   const cardRef = useRef<HTMLDivElement>(null)
 
@@ -39,6 +39,11 @@ export function LoginPage() {
     try {
       if (mode === 'login') {
         await signIn(email, password)
+      } else if (mode === 'forgot') {
+        await resetPassword(email)
+        toast({ title: 'E-mail enviado!', description: 'Verifique sua caixa de entrada para redefinir a senha.' })
+        setMode('login')
+        return
       } else {
         await signUp(email, password)
         toast({ title: 'Conta criada!', description: 'Verifique seu e-mail para confirmar o cadastro.' })
@@ -81,7 +86,11 @@ export function LoginPage() {
           <div className="text-center">
             <h1 className="text-[28px] font-bold tracking-tight text-foreground">fintrack</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {mode === 'login' ? 'Bem-vindo de volta' : 'Crie sua conta gratuitamente'}
+              {mode === 'login'
+                ? 'Bem-vindo de volta'
+                : mode === 'forgot'
+                ? 'Recupere o acesso à sua conta'
+                : 'Crie sua conta gratuitamente'}
             </p>
           </div>
         </div>
@@ -99,22 +108,24 @@ export function LoginPage() {
           }}
         >
           {/* Mode tabs */}
-          <div className="mb-6 flex rounded-xl bg-muted p-1">
-            {(['login', 'signup'] as Mode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition-all duration-200 ${
-                  mode === m
-                    ? 'bg-white text-foreground shadow-sm dark:bg-white/10'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {m === 'login' ? 'Entrar' : 'Cadastrar'}
-              </button>
-            ))}
-          </div>
+          {mode !== 'forgot' && (
+            <div className="mb-6 flex rounded-xl bg-muted p-1">
+              {(['login', 'signup'] as Mode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition-all duration-200 ${
+                    mode === m
+                      ? 'bg-white text-foreground shadow-sm dark:bg-white/10'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {m === 'login' ? 'Entrar' : 'Cadastrar'}
+                </button>
+              ))}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -133,22 +144,41 @@ export function LoginPage() {
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Senha
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                className="rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 transition-all focus:border-violet-400 focus:bg-background focus:outline-none focus:ring-4 focus:ring-violet-500/10 dark:bg-white/5"
-                placeholder="••••••••"
-              />
-            </div>
+            {mode !== 'forgot' && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="password" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Senha
+                  </label>
+                  {mode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => setMode('forgot')}
+                      className="text-xs font-medium text-violet-500 hover:text-violet-400 transition-colors"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  )}
+                </div>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  className="rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 transition-all focus:border-violet-400 focus:bg-background focus:outline-none focus:ring-4 focus:ring-violet-500/10 dark:bg-white/5"
+                  placeholder="••••••••"
+                />
+              </div>
+            )}
+
+            {mode === 'forgot' && (
+              <p className="-mt-1 text-xs leading-relaxed text-muted-foreground">
+                Informe seu e-mail e enviaremos um link para redefinir sua senha.
+              </p>
+            )}
 
             <button
               type="submit"
@@ -157,8 +187,12 @@ export function LoginPage() {
             >
               {loading ? (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              ) : mode === 'login' ? (
+                'Entrar'
+              ) : mode === 'forgot' ? (
+                'Enviar link'
               ) : (
-                mode === 'login' ? 'Entrar' : 'Criar conta'
+                'Criar conta'
               )}
             </button>
           </form>
@@ -170,6 +204,13 @@ export function LoginPage() {
               Não tem conta?{' '}
               <button onClick={() => setMode('signup')} className="font-semibold text-violet-500 hover:text-violet-400 transition-colors">
                 Criar conta
+              </button>
+            </>
+          ) : mode === 'forgot' ? (
+            <>
+              Lembrou a senha?{' '}
+              <button onClick={() => setMode('login')} className="font-semibold text-violet-500 hover:text-violet-400 transition-colors">
+                Entrar
               </button>
             </>
           ) : (
