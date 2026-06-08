@@ -94,6 +94,7 @@ export function SellVehicleDialog({ open, onOpenChange, activeVehicles, preselec
         installments_count: data.installments_count,
         installments_amount: data.installments_amount,
         installments_paid: 0,
+        extra_paid: 0,
         trade_description: data.trade_description || null,
         trade_value: data.trade_value,
         notes: data.notes || null,
